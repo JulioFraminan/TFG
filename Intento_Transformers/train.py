@@ -1,6 +1,13 @@
 import os
 import time
 import math
+import random
+import sys
+import gc
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -19,6 +26,7 @@ from config import (
     EMA_DECAY,
     EPOCHS,
     GRAD_ACCUM_STEPS,
+    GRADIENT_CHECKPOINTING,
     LEARNING_RATE,
     MLP_RATIO,
     MODEL_DEPTH,
@@ -109,8 +117,20 @@ def _update_ema(ema_state, model, decay):
             ema_state[key].mul_(decay).add_(value.detach(), alpha=one_minus_decay)
 
 
+def _is_oom_error(err):
+    msg = str(err).lower()
+    return isinstance(err, torch.cuda.OutOfMemoryError) or "out of memory" in msg
+
+
 def main():
     create_all_dirs()
+
+    seed = 42
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     use_amp = device.type == "cuda"
@@ -194,6 +214,7 @@ def main():
         cond_dim=1,
         patch_size=MODEL_PATCH_SIZE,
         attention_chunk_size=ATTENTION_CHUNK_SIZE,
+        gradient_checkpointing=GRADIENT_CHECKPOINTING,
     ).to(device)
 
     n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -208,7 +229,7 @@ def main():
     )
     print(
         f"Optimization config: grad_accum={GRAD_ACCUM_STEPS}, ema_decay={EMA_DECAY}, "
-        f"val_ddim_steps={VALIDATION_DDIM_STEPS}"
+        f"val_ddim_steps={VALIDATION_DDIM_STEPS}, ckpt={GRADIENT_CHECKPOINTING}"
     )
 
     optimizer = optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
@@ -220,6 +241,8 @@ def main():
     ema_state = _state_clone(model.state_dict())
 
     history = {"loss": [], "lr": []}
+    smooth_loss = None
+    smooth_beta = 0.92
     global_step = 0
     t0 = time.time()
 
@@ -232,32 +255,67 @@ def main():
         for batch_idx, (batch_img, batch_ang) in enumerate(loader):
             batch_img = batch_img.to(device, non_blocking=use_pin)
             batch_ang = batch_ang.to(device, non_blocking=use_pin)
-            t = torch.randint(0, DIFFUSION_STEPS, (batch_img.shape[0],), device=device)
 
-            with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=use_amp):
-                z0 = codec.encode(batch_img)
-                z_t, noise_target = model.diffusion_schedule.q_sample(z0, t)
-                noise_pred = model(z_t, t, batch_ang)
-                diffusion_loss = criterion(noise_pred, noise_target)
-                loss = diffusion_loss / grad_accum
+            max_oom_retries = 6
+            for oom_try in range(max_oom_retries + 1):
+                try:
+                    t = torch.randint(0, DIFFUSION_STEPS, (batch_img.shape[0],), device=device)
+                    with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=use_amp):
+                        z0 = codec.encode(batch_img)
+                        z_t, noise_target = model.diffusion_schedule.q_sample(z0, t)
+                        noise_pred = model(z_t, t, batch_ang)
+                        diffusion_loss = criterion(noise_pred, noise_target)
+                        loss = diffusion_loss / grad_accum
 
-            scaler.scale(loss).backward()
+                    scaler.scale(loss).backward()
+                    diffusion_loss_value = float(diffusion_loss.item())
+                    break
+                except RuntimeError as err:
+                    if not _is_oom_error(err):
+                        raise
+                    if oom_try >= max_oom_retries:
+                        raise
+
+                    optimizer.zero_grad(set_to_none=True)
+                    gc.collect()
+
+                    if device.type == "cuda":
+                        torch.cuda.empty_cache()
+
+                    if (
+                        oom_try >= 2
+                        and hasattr(model, "gradient_checkpointing")
+                        and not model.gradient_checkpointing
+                        and model.get_attention_runtime_chunk() <= 80
+                    ):
+                        model.gradient_checkpointing = True
+                        print("[OOM-RECOVERY] Enabled gradient checkpointing and retrying batch")
+
+                    model.reduce_attention_runtime_chunk(factor=2)
+                    print(
+                        f"[OOM-RECOVERY] Reduced attention runtime chunk to "
+                        f"{model.get_attention_runtime_chunk()} and retrying batch"
+                    )
 
             do_step = ((batch_idx + 1) % grad_accum == 0) or (batch_idx + 1 == len(loader))
             if do_step:
                 scaler.unscale_(optimizer)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+                torch.nn.utils.clip_grad_norm_(model.parameters(), 0.7)
                 scaler.step(optimizer)
                 scaler.update()
                 optimizer.zero_grad(set_to_none=True)
                 scheduler.step()
                 _update_ema(ema_state, model, EMA_DECAY)
 
-            epoch_loss += float(diffusion_loss.item())
+            epoch_loss += diffusion_loss_value
             n_batches += 1
             global_step += 1
 
         avg_loss = epoch_loss / max(1, n_batches)
+        if smooth_loss is None:
+            smooth_loss = avg_loss
+        else:
+            smooth_loss = smooth_beta * smooth_loss + (1.0 - smooth_beta) * avg_loss
         history["loss"].append(avg_loss)
         history["lr"].append(scheduler.get_last_lr()[0])
 
@@ -266,6 +324,7 @@ def main():
             eta = elapsed / max(1, epoch) * (EPOCHS - epoch)
             print(
                 f"Epoch {epoch:4d}/{EPOCHS} | loss={avg_loss:.6f} "
+                f"| smooth={smooth_loss:.6f} "
                 f"| lr={scheduler.get_last_lr()[0]:.2e} "
                 f"| elapsed={format_seconds(elapsed)} eta={format_seconds(eta)}"
             )
@@ -405,6 +464,7 @@ def main():
         "compression_ratio": VAE_COMPRESSION_RATIO,
         "patch_size": MODEL_PATCH_SIZE,
         "attention_chunk_size": ATTENTION_CHUNK_SIZE,
+        "gradient_checkpointing": GRADIENT_CHECKPOINTING,
         "hidden_size": MODEL_HIDDEN_SIZE,
         "depth": MODEL_DEPTH,
         "num_heads": MODEL_NUM_HEADS,

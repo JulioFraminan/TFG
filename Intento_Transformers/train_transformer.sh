@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=1_Transformer
+#SBATCH --job-name=3_Transformer
 #SBATCH --nodes=1
 #SBATCH --nodelist=n008
 #SBATCH --ntasks=1
@@ -8,21 +8,48 @@
 #SBATCH --mem=16G
 #SBATCH --time=12:00:00
 #SBATCH --partition=gpu
-#SBATCH --output=logs/out-%x-%j.log
-#SBATCH --error=logs/err-%x-%j.log
+#SBATCH --output=/home/j.framinan/TFG_repo/Intento_Transformers/logs/out-%x-%j.log
+#SBATCH --error=/home/j.framinan/TFG_repo/Intento_Transformers/logs/err-%x-%j.log
 
-export CUDA_VISIBLE_DEVICES="1"
+export CUDA_VISIBLE_DEVICES="3"
+export PYTORCH_HIP_ALLOC_CONF="expandable_segments:True"
 
 echo "Starting job"
 date
 
-cd ~/Intento_Transformers
+PROJECT_DIR=""
+
+for CANDIDATE in \
+	"${SLURM_SUBMIT_DIR:-}" \
+	"${SLURM_SUBMIT_DIR:-}/Intento_Transformers" \
+	"$HOME/TFG_repo/Intento_Transformers"
+do
+	if [[ -n "$CANDIDATE" && -f "$CANDIDATE/train.py" && -f "$CANDIDATE/data_utils.py" && -f "$CANDIDATE/model.py" ]]; then
+		PROJECT_DIR="$CANDIDATE"
+		break
+	fi
+done
+
+if [[ -z "$PROJECT_DIR" ]]; then
+	echo "[ERROR] Estructura incompleta en: ${PROJECT_DIR:-<ninguno>}"
+	echo "        Esperados: train.py, data_utils.py, model.py"
+	echo "        SLURM_SUBMIT_DIR=${SLURM_SUBMIT_DIR:-<unset>}"
+	echo "        Candidatos probados:"
+	echo "          - ${SLURM_SUBMIT_DIR:-<unset>}"
+	echo "          - ${SLURM_SUBMIT_DIR:-<unset>}/Intento_Transformers"
+	echo "          - $HOME/TFG_repo/Intento_Transformers"
+	exit 1
+fi
+
+cd "$PROJECT_DIR"
+
+echo "Project dir: $PROJECT_DIR"
 
 #module load miniconda3/condabase
 #eval "$(conda shell.bash hook)"
 #conda activate test_env
 
-python -u train.py
+python -u "$PROJECT_DIR/train.py"
 
 date
 echo "Finished"

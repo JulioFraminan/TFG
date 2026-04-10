@@ -1,10 +1,43 @@
-# UNet AE Modular — Generación Condicionada de Planos de Transmission Loss
+# UNet Autoencoder Condicional — Generación rápida de planos TL
 
-Proyecto de **Trabajo Fin de Grado** (UPM) para generar planos de *Transmission Loss* (TL) acústica condicionados por ángulo, empleando un **UNet Autoencoder Condicional** con modulación **FiLM**.
+**Generador compacto y rápido** de campos de *Transmission Loss* (TL) acústico usando autoencoder de arquitectura **UNet** con modulación **FiLM** condicionada por ángulo.
+
+**⚡ Ventajas principais:**
+- Entrenamiento rápido (~30 minutos, 70 épocas)
+- Generación en 1 forward pass (< 1 segundo)
+- VRAM bajo (< 30% típicamente)
+- Ideal para prototipado e iteración rápida
+- Determinista y reproducible
+
+**⚡ Ventajas principais:**
+- Entrenamiento rápido (~30 minutos, 70 épocas)
+- Generación en 1 forward pass (< 1 segundo)
+- VRAM bajo (< 30% típicamente)
+- Ideal para prototipado e iteración rápida
+- Determinista y reproducible
 
 ---
 
-## Estructura del proyecto
+## 📊 Comparativa: UNet AE vs DiT Diffusion
+
+| Característica | **UNet AE (este)** | **DiT (Diffusion)** |
+|---|---|---|
+| **Tipo** | Determinista | Generativo (iterativo) |
+| **Velocidad entrenamiento** | ⚡ Rápida (30min) | Lenta (6 horas) |
+| **Velocidad generación** | ⚡⚡ Muy rápida (< 1s) | Lenta (1-2 min) |
+| **Calidad** | ⭐⭐⭐⭐ Muy buena | ⭐⭐⭐⭐⭐ Excelente |
+| **Pixelado** | Posible (interpolación) | Bajo (refinamiento iterativo) |
+| **Variabilidad** | Determinista (misma entrada = misma salida) | Estocástica (variantes diferentes) |
+| **VRAM** | Bajo (< 30%) | Alto (80%) |
+| **Parámetros** | ~5-10M | 38.5M |
+
+**¿Cuándo usar cada uno?**
+- **UNet AE:** Prototipado rápido, producción, usuario con GPU limitada
+- **DiT:** Máxima calidad, investigación, tiempo no es problema
+
+---
+
+## 📁 Estructura del proyecto
 
 ```
 unet_ae_modular/

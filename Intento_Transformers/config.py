@@ -20,37 +20,38 @@ BETA_END   = 0.02
 # ══════════════════════════════════════════════════════════════════════════
 #  PARÁMETROS DEL MODELO TRANSFORMER (DiT)
 # ══════════════════════════════════════════════════════════════════════════
-MODEL_HIDDEN_SIZE = 320
-MODEL_DEPTH       = 8
-MODEL_NUM_HEADS   = 8
-MLP_RATIO         = 4.0
-MODEL_PATCH_SIZE  = 3
-ATTENTION_CHUNK_SIZE = 256
+MODEL_HIDDEN_SIZE = 448        # Intermediate: 384 → 512 sweet spot
+MODEL_DEPTH       = 11         # 10.5 equivalent
+MODEL_NUM_HEADS   = 14         # 32 dim/head (good for 448)
+MLP_RATIO         = 3.0        # Between 3.0 and 4.0
+MODEL_PATCH_SIZE  = 2
+ATTENTION_CHUNK_SIZE = 448     # Match hidden size
+GRADIENT_CHECKPOINTING = True  # ↑ Enabled (saves ~30% intermediate activations)
 
 # Codec latente determinista (downsample/upsample)
 # Se mantiene el prefijo VAE_* para compatibilidad con checkpoints previos.
 VAE_LATENT_CHANNELS = 1
-VAE_COMPRESSION_RATIO = 6
+VAE_COMPRESSION_RATIO = 6      # Balance: detail vs tokens (39k tokens)
 
 # ══════════════════════════════════════════════════════════════════════════
 #  PARÁMETROS DE ENTRENAMIENTO
 # ══════════════════════════════════════════════════════════════════════════
-BATCH_SIZE         = 2
-GRAD_ACCUM_STEPS   = 2
-EPOCHS             = 400
-LEARNING_RATE      = 2e-4
+BATCH_SIZE         = 4         # Safe batch size
+GRAD_ACCUM_STEPS   = 1         # No accumulation (batch 4 is good enough)
+EPOCHS             = 100
+LEARNING_RATE      = 1.5e-4
 WARMUP_STEPS       = 400
 WEIGHT_DECAY       = 1e-4
-EMA_DECAY          = 0.9995
-USE_AUGMENTATION   = True
+EMA_DECAY          = 0.9997
+USE_AUGMENTATION   = False
 
 # ══════════════════════════════════════════════════════════════════════════
 #  PARÁMETROS DE VALIDACIÓN Y GENERACIÓN
 # ══════════════════════════════════════════════════════════════════════════
 VALIDATION_EVERY   = 50
 NUM_VALIDATION_ANGLES = 10
-VALIDATION_DDIM_STEPS = 220
-GENERATION_DDIM_STEPS = 280
+VALIDATION_DDIM_STEPS = 150    # Balance: quality vs speed (10 angles × 150 = 1500 steps total)
+GENERATION_DDIM_STEPS = 350    # Higher for final generation (better quality)
 GENERATE_ANGLES    = [95, 100, 110, 120, 130, 140, 150, 160, 170, 180]
 
 # ══════════════════════════════════════════════════════════════════════════

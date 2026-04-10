@@ -11,6 +11,7 @@ import math
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.utils.checkpoint import checkpoint as torch_checkpoint
 
 
 def modulate(x, shift, scale):
@@ -99,7 +100,7 @@ class ConditionEmbedder(nn.Module):
 class Attention(nn.Module):
     """Multi-head self-attention with chunked computation for ROCm stability."""
 
-    def __init__(self, dim, num_heads=8, qkv_bias=False, attention_chunk_size=256):
+    def __init__(self, dim, num_heads=8, qkv_bias=True, attention_chunk_size=256):
         super().__init__()
         if dim % num_heads != 0:
             raise ValueError(f"dim ({dim}) must be divisible by num_heads ({num_heads})")
@@ -108,27 +109,61 @@ class Attention(nn.Module):
         self.head_dim = dim // num_heads
         self.scale = self.head_dim ** -0.5
         self.attention_chunk_size = int(attention_chunk_size)
+        self._runtime_chunk_size = int(attention_chunk_size)
+        self._min_chunk_size = 4
 
         self.qkv = nn.Linear(dim, dim * 3, bias=qkv_bias)
         self.proj = nn.Linear(dim, dim)
 
+    @staticmethod
+    def _is_oom_error(err):
+        msg = str(err).lower()
+        return isinstance(err, torch.cuda.OutOfMemoryError) or "out of memory" in msg
+
     def _attention_core(self, q, k, v):
         attn_scores = torch.matmul(q, k.transpose(-2, -1)) * self.scale
-        attn_probs = torch.softmax(attn_scores.float(), dim=-1).to(q.dtype)
+        attn_scores = attn_scores - attn_scores.amax(dim=-1, keepdim=True)
+        attn_probs = torch.softmax(attn_scores, dim=-1)
         return torch.matmul(attn_probs, v)
 
     def _chunked_attention(self, q, k, v):
         bsz, n_heads, n_tokens, head_dim = q.shape
-        chunk = self.attention_chunk_size
+        configured = max(0, self.attention_chunk_size)
+        runtime = max(0, self._runtime_chunk_size)
+        chunk = configured if configured > 0 else n_tokens
+        if runtime > 0:
+            chunk = min(chunk, runtime)
 
-        if chunk <= 0 or chunk >= n_tokens:
-            return self._attention_core(q, k, v)
+        min_chunk = self._min_chunk_size
+        while True:
+            try:
+                if chunk <= 0 or chunk >= n_tokens:
+                    out = self._attention_core(q, k, v)
+                else:
+                    out = torch.empty((bsz, n_heads, n_tokens, head_dim), device=q.device, dtype=q.dtype)
+                    for start in range(0, n_tokens, chunk):
+                        end = min(start + chunk, n_tokens)
+                        out[:, :, start:end, :] = self._attention_core(q[:, :, start:end, :], k, v)
 
-        out = torch.empty((bsz, n_heads, n_tokens, head_dim), device=q.device, dtype=q.dtype)
-        for start in range(0, n_tokens, chunk):
-            end = min(start + chunk, n_tokens)
-            out[:, :, start:end, :] = self._attention_core(q[:, :, start:end, :], k, v)
-        return out
+                self._runtime_chunk_size = chunk
+                return out
+            except RuntimeError as err:
+                if not self._is_oom_error(err) or chunk <= min_chunk:
+                    raise
+
+                if q.device.type == "cuda":
+                    torch.cuda.empty_cache()
+
+                chunk = max(min_chunk, chunk // 2)
+
+    def reduce_runtime_chunk(self, factor=2):
+        """Reduce runtime chunk size for OOM recovery."""
+        factor = max(2, int(factor))
+        current = max(self._min_chunk_size, int(self._runtime_chunk_size))
+        self._runtime_chunk_size = max(self._min_chunk_size, current // factor)
+
+    def get_runtime_chunk(self):
+        return int(self._runtime_chunk_size)
 
     def forward(self, x):
         bsz, n_tokens, dim = x.shape
@@ -249,7 +284,14 @@ class LatentCodec(nn.Module):
         else:
             x = z.mean(dim=1, keepdim=True)
 
-        x = F.interpolate(x, size=output_shape, mode="bilinear", align_corners=False)
+        # Bicubic interpolation for smooth upsampling
+        x = F.interpolate(x, size=output_shape, mode="bicubic", align_corners=False)
+        
+        # Apply multi-scale smoothing to reduce pixelation artifacts
+        x_smooth = F.avg_pool2d(F.pad(x, (1, 1, 1, 1), mode="reflect"), kernel_size=3, stride=1)
+        x_smooth = x_smooth[:, :, :output_shape[0], :output_shape[1]]  # Crop to output size
+        x = 0.85 * x + 0.15 * x_smooth  # Increased smoothing weight for less pixelated output
+        
         return x.clamp(-1.0, 1.0)
 
 
@@ -267,6 +309,7 @@ class DiT(nn.Module):
         cond_dim=1,
         patch_size=4,
         attention_chunk_size=256,
+        gradient_checkpointing=False,
     ):
         super().__init__()
 
@@ -276,6 +319,7 @@ class DiT(nn.Module):
         self.num_heads = int(num_heads)
         self.patch_size = int(patch_size)
         self.attention_chunk_size = int(attention_chunk_size)
+        self.gradient_checkpointing = bool(gradient_checkpointing)
 
         if self.patch_size < 1:
             raise ValueError(f"patch_size must be >= 1, got {self.patch_size}")
@@ -311,6 +355,16 @@ class DiT(nn.Module):
             self.hidden_size,
             self.patch_size * self.patch_size * self.latent_channels,
         )
+        self.output_refine = nn.Conv2d(
+            self.latent_channels,
+            self.latent_channels,
+            kernel_size=3,
+            padding=1,
+            groups=self.latent_channels,
+            bias=True,
+        )
+        nn.init.zeros_(self.output_refine.weight)
+        nn.init.zeros_(self.output_refine.bias)
 
         self.diffusion_schedule = DiffusionSchedule(num_diffusion_steps)
 
@@ -327,6 +381,16 @@ class DiT(nn.Module):
             self._pos_embed = get_2d_sincos_pos_embed(self.hidden_size, shape, device)
             self._pos_shape = shape
         return self._pos_embed
+
+    def reduce_attention_runtime_chunk(self, factor=2):
+        """Reduce runtime attention chunk in all blocks (used by OOM recovery)."""
+        for block in self.blocks:
+            block.attn.reduce_runtime_chunk(factor=factor)
+
+    def get_attention_runtime_chunk(self):
+        if not self.blocks:
+            return 0
+        return self.blocks[0].attn.get_runtime_chunk()
 
     def forward(self, z, t, cond=None):
         """
@@ -363,7 +427,10 @@ class DiT(nn.Module):
             c = t_emb
 
         for block in self.blocks:
-            x = block(x, c)
+            if self.gradient_checkpointing and self.training and torch.is_grad_enabled():
+                x = torch_checkpoint(block, x, c, use_reentrant=False)
+            else:
+                x = block(x, c)
 
         shift, scale = self.ada_ln_final(c).chunk(2, dim=1)
         x = modulate(self.norm_final(x), shift, scale)
@@ -389,6 +456,8 @@ class DiT(nn.Module):
         else:
             noise = noise_pad
 
+        noise = noise + self.output_refine(noise)
+
         return noise
 
 
@@ -403,6 +472,7 @@ if __name__ == "__main__":
         cond_dim=1,
         patch_size=4,
         attention_chunk_size=256,
+        gradient_checkpointing=True,
     )
 
     z = torch.randn(2, 1, 88, 250)
