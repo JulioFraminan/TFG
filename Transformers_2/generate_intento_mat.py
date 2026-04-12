@@ -238,6 +238,15 @@ def _nearest_reference(bundle: DatasetBundle, angle: float) -> Optional[Tuple[np
     return bundle.rois[idx], float(bundle.angles_deg[idx]), bundle.extents[idx]
 
 
+def _default_extent_from_metadata(metadata: Dict) -> List[float]:
+    roi_corner = metadata.get("roi_corner", [0.0, 0.0])
+    x_left = float(roi_corner[0]) if len(roi_corner) >= 1 else 0.0
+    z_top = float(roi_corner[1]) if len(roi_corner) >= 2 else 0.0
+    roi_w = float(metadata.get("roi_width", 1.0))
+    roi_h = float(metadata.get("roi_height", 1.0))
+    return [x_left, x_left + roi_w, z_top - roi_h, z_top]
+
+
 def _generate_single_sample(
     diffusion,
     cond_tensor: torch.Tensor,
@@ -308,9 +317,11 @@ def main() -> None:
         extents=[],
     )
 
-    if args.with_reference:
+    # Reference ROIs are loaded for physical extents (meters) and optional comparisons.
+    input_folder = str(metadata.get("input_folder", ""))
+    if input_folder and os.path.isdir(input_folder):
         reference_bundle = load_rois_from_folder(
-            folder=str(metadata["input_folder"]),
+            folder=input_folder,
             roi_h=roi_height,
             roi_w=roi_width,
             rois_per_plane=1,
@@ -350,38 +361,56 @@ def main() -> None:
 
         sample_tl = denormalize_fields_01(sample_01[None, ...], stats)[0]
 
+        ref_info = _nearest_reference(reference_bundle, angle)
+        sample_extent = ref_info[2] if ref_info is not None else _default_extent_from_metadata(metadata)
+
         filename = f"plano_angulo_{angle:+07.2f}"
         mat_path = mat_folder / f"{filename}.mat"
         png_path = png_folder / f"{filename}.png"
 
-        save_mat_h5(str(mat_path), sample_tl)
+        save_mat_h5(str(mat_path), sample_tl, extent=sample_extent)
 
-        ref_info = _nearest_reference(reference_bundle, angle)
-        if ref_info is not None:
+        if ref_info is not None and args.with_reference:
             ref_tl, ref_angle, extent = ref_info
             error_map = np.abs(ref_tl - sample_tl)
 
             fig, axes = plt.subplots(1, 3, figsize=(15, 5))
             im0 = axes[0].imshow(ref_tl, cmap="jet", origin="lower", aspect="auto", vmin=stats.tl_min, vmax=stats.tl_max, extent=extent)
             axes[0].set_title(f"Reference ({ref_angle:.2f} deg)")
+            axes[0].set_xlabel("X [m]")
+            axes[0].set_ylabel("Z [m]")
             plt.colorbar(im0, ax=axes[0], fraction=0.046, pad=0.04)
 
             im1 = axes[1].imshow(sample_tl, cmap="jet", origin="lower", aspect="auto", vmin=stats.tl_min, vmax=stats.tl_max, extent=extent)
             axes[1].set_title(f"Generated ({angle:.2f} deg)")
+            axes[1].set_xlabel("X [m]")
+            axes[1].set_ylabel("Z [m]")
             plt.colorbar(im1, ax=axes[1], fraction=0.046, pad=0.04)
 
             mae = float(np.mean(error_map))
             rmse = float(np.sqrt(np.mean(error_map ** 2)))
             im2 = axes[2].imshow(error_map, cmap="hot", origin="lower", aspect="auto", extent=extent)
             axes[2].set_title(f"|Error| MAE={mae:.3f} RMSE={rmse:.3f}")
+            axes[2].set_xlabel("X [m]")
+            axes[2].set_ylabel("Z [m]")
             plt.colorbar(im2, ax=axes[2], fraction=0.046, pad=0.04)
 
             fig.tight_layout()
             print(f"angle={angle:+07.2f} | ref={ref_angle:+07.2f} | MAE={mae:.3f} RMSE={rmse:.3f}")
         else:
             fig, ax = plt.subplots(1, 1, figsize=(9, 4))
-            im = ax.imshow(sample_tl, cmap="jet", origin="lower", aspect="auto", vmin=stats.tl_min, vmax=stats.tl_max)
+            im = ax.imshow(
+                sample_tl,
+                cmap="jet",
+                origin="lower",
+                aspect="auto",
+                vmin=stats.tl_min,
+                vmax=stats.tl_max,
+                extent=sample_extent,
+            )
             ax.set_title(f"Generated ({angle:.2f} deg)")
+            ax.set_xlabel("X [m]")
+            ax.set_ylabel("Z [m]")
             plt.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
             fig.tight_layout()
             print(f"angle={angle:+07.2f} generated")
@@ -399,6 +428,7 @@ def main() -> None:
         "sampler": args.sampler,
         "cond_scale": args.cond_scale,
         "num_inference_steps": args.num_inference_steps,
+        "axis_units": "m",
     }
     with (output_root / "generation_summary.json").open("w", encoding="utf-8") as handle:
         json.dump(summary, handle, indent=2)

@@ -7,7 +7,6 @@ import sys
 from pathlib import Path
 from typing import Dict, Tuple
 
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from torch.utils.data import TensorDataset
@@ -24,7 +23,6 @@ from denoising_diffusion_pytorch.continuous_classifier_free_guidance import (  #
     GaussianDiffusion,
     Trainer,
     Unet,
-    evaluate_model,
 )
 from denoising_diffusion_pytorch.dit import DiT_models  # noqa: E402
 from intento_mat_utils import (  # noqa: E402
@@ -32,11 +30,11 @@ from intento_mat_utils import (  # noqa: E402
     DatasetBundle,
     default_intento_input_folder,
     default_intento_validation_folder,
-    denormalize_fields_01,
     ensure_min_samples,
     load_rois_from_folder,
     normalize_angles,
     normalize_fields_01,
+    parse_angle_list,
     resize_fields,
 )
 
@@ -108,9 +106,14 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--disable-lr-scheduler", action="store_true")
     parser.add_argument("--use-cpu", action="store_true")
 
-    parser.add_argument("--eval-after-train", action="store_true")
-    parser.add_argument("--eval-batch-size", type=int, default=16)
-    parser.add_argument("--eval-max-samples", type=int, default=6)
+    parser.add_argument("--skip-post-validation", action="store_true")
+    parser.add_argument("--validation-output-subdir", type=str, default="validation")
+    parser.add_argument("--validation-angles", type=str, default="")
+    parser.add_argument("--validation-cond-scale", type=float, default=6.0)
+    parser.add_argument("--validation-sampler", type=str, choices=["ddpm", "ddim"], default="ddim")
+    parser.add_argument("--validation-num-inference-steps", type=int, default=-1)
+    parser.add_argument("--validation-rows-per-page", type=int, default=6)
+    parser.add_argument("--validation-max-samples", type=int, default=-1)
 
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--results-folder", type=str, default="results/intento_mat/dit_gaussian")
@@ -150,6 +153,20 @@ def _replace_variant_patch_size(variant_name: str, patch_size: int) -> str:
 
 def _token_count(train_h: int, train_w: int, patch_size: int) -> int:
     return (train_h // patch_size) * (train_w // patch_size)
+
+
+def _discover_latest_checkpoint(results_folder: Path) -> Path:
+    candidates = []
+    for path in results_folder.glob("model-*.pt"):
+        suffix = path.stem.split("-")[-1]
+        if suffix.isdigit():
+            candidates.append((int(suffix), path))
+
+    if len(candidates) == 0:
+        raise FileNotFoundError(f"No model-*.pt checkpoints found in {results_folder}")
+
+    candidates.sort(key=lambda item: item[0])
+    return candidates[-1][1]
 
 
 def _maybe_auto_adjust_dit_variant(args: argparse.Namespace, train_h: int, train_w: int) -> None:
@@ -322,6 +339,7 @@ def _build_metadata(
         "gradient_accumulate_every": args.gradient_accumulate_every,
         "ema_decay": args.ema_decay,
         "save_and_sample_every": args.save_and_sample_every,
+        "validation_output_subdir": args.validation_output_subdir,
         "tl_min": stats.tl_min,
         "tl_max": stats.tl_max,
         "angle_mean": stats.angle_mean,
@@ -329,43 +347,6 @@ def _build_metadata(
         "train_samples": int(train_bundle.rois.shape[0]),
         "validation_samples": int(val_bundle.rois.shape[0]),
     }
-
-
-def save_eval_figure(
-    output_path: Path,
-    predictions_01: np.ndarray,
-    targets_01: np.ndarray,
-    stats: NormalizationStats,
-    max_samples: int,
-) -> None:
-    n_samples = min(max_samples, predictions_01.shape[0], targets_01.shape[0])
-    if n_samples <= 0:
-        return
-
-    preds = denormalize_fields_01(predictions_01[:n_samples], stats)
-    targs = denormalize_fields_01(targets_01[:n_samples], stats)
-
-    fig, axes = plt.subplots(n_samples, 3, figsize=(14, max(4, 3.5 * n_samples)), squeeze=False)
-    for idx in range(n_samples):
-        real = targs[idx]
-        pred = preds[idx]
-        err = np.abs(pred - real)
-
-        im0 = axes[idx, 0].imshow(real, cmap="jet", origin="lower", aspect="auto", vmin=stats.tl_min, vmax=stats.tl_max)
-        axes[idx, 0].set_title("Validation reference")
-        plt.colorbar(im0, ax=axes[idx, 0], fraction=0.046, pad=0.04)
-
-        im1 = axes[idx, 1].imshow(pred, cmap="jet", origin="lower", aspect="auto", vmin=stats.tl_min, vmax=stats.tl_max)
-        axes[idx, 1].set_title("Model prediction")
-        plt.colorbar(im1, ax=axes[idx, 1], fraction=0.046, pad=0.04)
-
-        im2 = axes[idx, 2].imshow(err, cmap="hot", origin="lower", aspect="auto")
-        axes[idx, 2].set_title("Absolute error")
-        plt.colorbar(im2, ax=axes[idx, 2], fraction=0.046, pad=0.04)
-
-    fig.tight_layout()
-    fig.savefig(output_path, dpi=140)
-    plt.close(fig)
 
 
 def main() -> None:
@@ -428,13 +409,6 @@ def main() -> None:
     train_tensor_c = torch.from_numpy(train_angles_norm[:, None]).float()
     train_dataset = TensorDataset(train_tensor_x, train_tensor_c)
 
-    val_fields_01 = None
-    val_angles_norm = None
-    if val_bundle.rois.size > 0:
-        val_fields_01 = normalize_fields_01(val_bundle.rois, stats)
-        val_fields_01 = resize_fields(val_fields_01, target_h=args.train_height, target_w=args.train_width)
-        val_angles_norm = normalize_angles(val_bundle.angles_deg, stats)
-
     print(f"Training samples used: {len(train_dataset)}")
     print(f"Train image shape: ({args.train_height}, {args.train_width})")
     print(f"TL range: [{stats.tl_min:.4f}, {stats.tl_max:.4f}]")
@@ -489,44 +463,45 @@ def main() -> None:
     print("=" * 72)
     trainer.train()
 
-    if not args.eval_after_train:
-        return
-
-    if val_fields_01 is None or val_angles_norm is None or val_fields_01.shape[0] == 0:
-        print("Validation skipped: no validation .mat files found")
+    if args.skip_post_validation:
+        print("Post-training validation skipped (--skip-post-validation).")
         return
 
     if not trainer.accelerator.is_main_process:
         return
 
-    eval_model = trainer.ema.ema_model if hasattr(trainer, "ema") else trainer.accelerator.unwrap_model(diffusion)
-    eval_model.eval()
+    if val_bundle.rois.size == 0:
+        print("Validation skipped: no validation .mat files found")
+        return
 
-    val_targets = torch.from_numpy(val_fields_01[:, None, :, :]).float()
-    val_conds = torch.from_numpy(val_angles_norm[:, None]).float()
+    try:
+        checkpoint_path = _discover_latest_checkpoint(results_folder)
+    except FileNotFoundError as error:
+        print(f"Validation skipped: {error}")
+        return
 
-    errors, predictions = evaluate_model(
-        eval_model,
-        val_conds,
-        val_targets,
-        args.eval_batch_size,
-        cond_scale=6,
-    )
+    requested_angles = parse_angle_list(args.validation_angles) if args.validation_angles.strip() else []
 
-    print(f"Validation metrics: {errors}")
-    with (results_folder / "validation_metrics.json").open("w", encoding="utf-8") as handle:
-        clean_errors = {key: float(value) for key, value in errors.items()}
-        json.dump(clean_errors, handle, indent=2)
+    from validation import run_validation
 
-    predictions_np = predictions.detach().cpu().numpy()[:, 0, :, :]
-    predictions_np = np.clip(predictions_np, 0.0, 1.0)
+    print("=" * 72)
+    print("Running post-training validation report")
+    print("=" * 72)
 
-    save_eval_figure(
-        output_path=results_folder / "validation_preview.png",
-        predictions_01=predictions_np,
-        targets_01=val_fields_01,
-        stats=stats,
-        max_samples=args.eval_max_samples,
+    run_validation(
+        results_folder=results_folder,
+        metadata=metadata,
+        checkpoint_path=checkpoint_path,
+        prefer_ema=True,
+        validation_folder_override=args.validation_folder,
+        requested_angles=requested_angles,
+        output_subdir=args.validation_output_subdir,
+        cond_scale=args.validation_cond_scale,
+        sampler=args.validation_sampler,
+        num_inference_steps=args.validation_num_inference_steps,
+        rows_per_page=args.validation_rows_per_page,
+        max_samples=args.validation_max_samples,
+        seed=args.seed,
     )
 
 

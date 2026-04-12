@@ -59,8 +59,12 @@ def phys_to_pixel(x_raw: np.ndarray, z_raw: np.ndarray, x_phys: float, z_phys: f
 
 
 def phys_size_to_pixels(x_raw: np.ndarray, z_raw: np.ndarray, roi_h: float, roi_w: float) -> Tuple[int, int]:
-    if isinstance(roi_h, (int, np.integer)) and isinstance(roi_w, (int, np.integer)):
-        return int(roi_h), int(roi_w)
+    def _is_integer_like(value) -> bool:
+        return isinstance(value, (int, np.integer)) or (isinstance(value, float) and float(value).is_integer())
+
+    # Keep backwards compatibility: values like 700 or 700.0 are interpreted as pixel sizes.
+    if _is_integer_like(roi_h) and _is_integer_like(roi_w):
+        return int(round(float(roi_h))), int(round(float(roi_w)))
 
     try:
         x_axis = x_raw[:, 0]
@@ -342,18 +346,31 @@ def ensure_min_samples(
     return fields_rep[:minimum], angles_rep[:minimum]
 
 
-def create_xyz_grid(shape: Tuple[int, int]) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
-    rows, cols = shape
-    x_idx = np.arange(cols, dtype=np.float64)
-    z_idx = np.arange(rows, dtype=np.float64)
-    x_grid, z_grid = np.meshgrid(x_idx, z_idx)
-    y_grid = np.zeros_like(x_grid)
+def create_xyz_grid(
+    shape: Tuple[int, int],
+    extent: Optional[Sequence[float]] = None,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    # Stored tl layout is (nx, nz): first axis maps to X, second axis maps to Z.
+    nx, nz = int(shape[0]), int(shape[1])
+
+    if extent is None:
+        x_left, x_right = 0.0, float(max(0, nx - 1))
+        z_bottom, z_top = 0.0, float(max(0, nz - 1))
+    else:
+        x_left, x_right, z_bottom, z_top = [float(value) for value in extent]
+
+    x_axis = np.linspace(x_left, x_right, nx, dtype=np.float64)
+    z_axis = np.linspace(z_bottom, z_top, nz, dtype=np.float64)
+
+    x_grid = np.repeat(x_axis[:, None], nz, axis=1)
+    z_grid = np.repeat(z_axis[None, :], nx, axis=0)
+    y_grid = np.zeros((nx, nz), dtype=np.float64)
     return x_grid, y_grid, z_grid
 
 
-def save_mat_h5(path: str, tl_array: np.ndarray) -> None:
+def save_mat_h5(path: str, tl_array: np.ndarray, extent: Optional[Sequence[float]] = None) -> None:
     tl_to_save = tl_array.T
-    x_grid, y_grid, z_grid = create_xyz_grid(tl_to_save.shape)
+    x_grid, y_grid, z_grid = create_xyz_grid(tl_to_save.shape, extent=extent)
     with h5py.File(path, "w") as file_obj:
         file_obj.create_dataset("X", data=x_grid)
         file_obj.create_dataset("Y", data=y_grid)

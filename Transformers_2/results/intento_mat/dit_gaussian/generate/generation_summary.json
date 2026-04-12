@@ -18,5 +18,6 @@
   "algorithm": "gaussian",
   "sampler": "ddim",
   "cond_scale": 6.0,
-  "num_inference_steps": -1
+  "num_inference_steps": -1,
+  "axis_units": "m"
 }

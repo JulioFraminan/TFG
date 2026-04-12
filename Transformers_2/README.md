@@ -31,10 +31,11 @@ This repository now includes a ready pipeline to train and generate on
 
 New scripts:
 
-- `scripts/intento_mat_utils.py`: ROI extraction + `.mat/.h5` IO compatible with
+- `intento_mat_utils.py`: ROI extraction + `.mat/.h5` IO compatible with
     the Intento_Transformers dataset format.
-- `scripts/train_intento_mat.py`: training with model and algorithm switches.
-- `scripts/generate_intento_mat.py`: conditioned generation to PNG + MAT.
+- `train_intento_mat.py`: training with model and algorithm switches.
+- `generate_intento_mat.py`: conditioned generation to PNG + MAT.
+- `validation.py`: standalone validation report (real vs generated vs error).
 
 ### Train (UNet or DiT, GaussianDiffusion or FlowMatching)
 
@@ -76,7 +77,22 @@ Notes:
 - For DiT with `--dit-attn-type vanilla`, the script now auto-adjusts to a larger
     patch variant when token count would exceed `--max-vanilla-attn-tokens`
     (default: 4096).
+- A full validation report is generated automatically at the end of training.
+    You can skip it with `--skip-post-validation`.
 - You can change ROI and conditioning behavior with `--roi-*` arguments.
+
+### Standalone validation report
+
+```bash
+python validation.py \
+        --results-folder results/intento_mat/dit_gaussian \
+        --prefer-ema \
+        --sampler ddim \
+        --num-inference-steps 300
+```
+
+Validation outputs are saved under `results/.../validation/{PNG,MAT}`.
+Plots and exported MAT grids use physical coordinates in meters (`X [m]`, `Z [m]`).
 
 ### Generate conditioned planes (PNG + MAT)
 
@@ -90,12 +106,14 @@ python generate_intento_mat.py \
     --with-reference
 ```
 
-For Slurm runs in this repository, use `train_transformer.sh` and `gen_transformer.sh`.
+For Slurm runs in this repository, use `train_transformer.sh`, `gen_transformer.sh`, and `val_transformer.sh`.
 
 Outputs are saved under:
 
 - `results/.../generate/PNG`
 - `results/.../generate/MAT`
+
+Generated plots and MAT grids use physical coordinates in meters (`X [m]`, `Z [m]`).
 
 ## Usage
 
