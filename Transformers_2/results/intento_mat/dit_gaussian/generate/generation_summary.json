@@ -1,0 +1,22 @@
+{
+  "checkpoint": "/home/j.framinan/TFG_repo/Transformers_2/results/intento_mat/dit_gaussian/model-6.pt",
+  "weights_source": "model",
+  "angles": [
+    95.0,
+    100.0,
+    110.0,
+    120.0,
+    130.0,
+    140.0,
+    150.0,
+    160.0,
+    170.0,
+    180.0
+  ],
+  "output_png": "/home/j.framinan/TFG_repo/Transformers_2/results/intento_mat/dit_gaussian/generate/PNG",
+  "output_mat": "/home/j.framinan/TFG_repo/Transformers_2/results/intento_mat/dit_gaussian/generate/MAT",
+  "algorithm": "gaussian",
+  "sampler": "ddim",
+  "cond_scale": 6.0,
+  "num_inference_steps": -1
+}

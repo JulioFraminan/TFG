@@ -263,7 +263,7 @@ class LatentCodec(nn.Module):
         w_lat = math.ceil(width / self.compression_ratio)
         return h_lat, w_lat
 
-    def encode(self, x):
+    def encode(self, x, cond=None):
         """Encode image tensor (B, 1, H, W) to latent tensor (B, C_lat, H_lat, W_lat)."""
         if x.ndim != 4 or x.shape[1] != 1:
             raise ValueError(f"encode expects shape (B,1,H,W), got {tuple(x.shape)}")
@@ -274,7 +274,7 @@ class LatentCodec(nn.Module):
             z = z.repeat(1, self.latent_channels, 1, 1)
         return z
 
-    def decode(self, z, output_shape):
+    def decode(self, z, output_shape, cond=None):
         """Decode latent tensor back to image tensor (B,1,H,W)."""
         if z.ndim != 4:
             raise ValueError(f"decode expects shape (B,C,H,W), got {tuple(z.shape)}")
@@ -306,6 +306,8 @@ class DiT(nn.Module):
         num_heads=4,
         mlp_ratio=4.0,
         num_diffusion_steps=1000,
+        beta_start=1e-4,
+        beta_end=2e-2,
         cond_dim=1,
         patch_size=4,
         attention_chunk_size=256,
@@ -366,7 +368,11 @@ class DiT(nn.Module):
         nn.init.zeros_(self.output_refine.weight)
         nn.init.zeros_(self.output_refine.bias)
 
-        self.diffusion_schedule = DiffusionSchedule(num_diffusion_steps)
+        self.diffusion_schedule = DiffusionSchedule(
+            num_steps=num_diffusion_steps,
+            beta_start=beta_start,
+            beta_end=beta_end,
+        )
 
         self.register_buffer("_pos_embed", torch.empty(0), persistent=False)
         self._pos_shape = None

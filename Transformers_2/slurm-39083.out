@@ -1,0 +1,63 @@
+Starting job
+dom abr 12 12:57:01 CEST 2026
+Flash attention 4 not found, using torch scaled_dot_product
+Triton modules not available. TritonLiteMLA and TritonMBConvPreGLU will not be usable.
+========================================================================
+Loading training data from .mat / h5
+========================================================================
+[OK] PlaneAngle-145.00_Length499.00.mat -> 1 ROI(s), angle=-145.00
+[OK] PlaneAngle-150.00_Length499.00.mat -> 1 ROI(s), angle=-150.00
+[OK] PlaneAngle-155.00_Length499.00.mat -> 1 ROI(s), angle=-155.00
+[OK] PlaneAngle-160.00_Length499.00.mat -> 1 ROI(s), angle=-160.00
+[OK] PlaneAngle-165.00_Length499.00.mat -> 1 ROI(s), angle=-165.00
+[OK] PlaneAngle-170.00_Length499.00.mat -> 1 ROI(s), angle=-170.00
+[OK] PlaneAngle-175.00_Length499.00.mat -> 1 ROI(s), angle=-175.00
+[OK] PlaneAngle0.00_Length499.00.mat -> 1 ROI(s), angle=0.00
+[OK] PlaneAngle100.00_Length499.00.mat -> 1 ROI(s), angle=100.00
+[OK] PlaneAngle105.00_Length499.00.mat -> 1 ROI(s), angle=105.00
+[OK] PlaneAngle110.00_Length499.00.mat -> 1 ROI(s), angle=110.00
+[OK] PlaneAngle115.00_Length499.00.mat -> 1 ROI(s), angle=115.00
+[OK] PlaneAngle120.00_Length499.00.mat -> 1 ROI(s), angle=120.00
+[OK] PlaneAngle125.00_Length499.00.mat -> 1 ROI(s), angle=125.00
+[OK] PlaneAngle130.00_Length499.00.mat -> 1 ROI(s), angle=130.00
+[OK] PlaneAngle15.00_Length499.00.mat -> 1 ROI(s), angle=15.00
+[OK] PlaneAngle150.00_Length499.00.mat -> 1 ROI(s), angle=150.00
+[OK] PlaneAngle155.00_Length499.00.mat -> 1 ROI(s), angle=155.00
+[OK] PlaneAngle160.00_Length499.00.mat -> 1 ROI(s), angle=160.00
+[OK] PlaneAngle165.00_Length499.00.mat -> 1 ROI(s), angle=165.00
+[OK] PlaneAngle170.00_Length499.00.mat -> 1 ROI(s), angle=170.00
+[OK] PlaneAngle175.00_Length499.00.mat -> 1 ROI(s), angle=175.00
+[OK] PlaneAngle180.00_Length499.00.mat -> 1 ROI(s), angle=180.00
+[OK] PlaneAngle20.00_Length499.00.mat -> 1 ROI(s), angle=20.00
+[OK] PlaneAngle25.00_Length499.00.mat -> 1 ROI(s), angle=25.00
+[OK] PlaneAngle30.00_Length499.00.mat -> 1 ROI(s), angle=30.00
+[OK] PlaneAngle35.00_Length499.00.mat -> 1 ROI(s), angle=35.00
+[OK] PlaneAngle40.00_Length499.00.mat -> 1 ROI(s), angle=40.00
+[OK] PlaneAngle45.00_Length499.00.mat -> 1 ROI(s), angle=45.00
+[OK] PlaneAngle5.00_Length499.00.mat -> 1 ROI(s), angle=5.00
+[OK] PlaneAngle50.00_Length499.00.mat -> 1 ROI(s), angle=50.00
+[OK] PlaneAngle55.00_Length499.00.mat -> 1 ROI(s), angle=55.00
+[OK] PlaneAngle60.00_Length499.00.mat -> 1 ROI(s), angle=60.00
+[OK] PlaneAngle65.00_Length499.00.mat -> 1 ROI(s), angle=65.00
+[OK] PlaneAngle70.00_Length499.00.mat -> 1 ROI(s), angle=70.00
+[OK] PlaneAngle85.00_Length499.00.mat -> 1 ROI(s), angle=85.00
+[OK] PlaneAngle90.00_Length499.00.mat -> 1 ROI(s), angle=90.00
+[OK] PlaneAngle95.00_Length499.00.mat -> 1 ROI(s), angle=95.00
+Training samples used: 100
+Train image shape: (256, 512)
+TL range: [-100.0000, -4.1742]
+Angle normalization: mean=42.7632, std=108.1647
+[auto] Switching DiT variant DiT-XXS/2 -> DiT-XXS/8 to keep vanilla attention tokens <= 4096 (32768 -> 2048).
+Creating 2D DiT
+Creating DiT with 2048 patches.
+DiT config: variant=DiT-XXS/8, patch_size=8, tokens=2048, attn=vanilla
+Model parameters: 1,864,897
+[RANK 0] Detected kernel version 3.10.0, which is below the recommended minimum of 5.5.0; this can cause the process to hang. It is recommended to upgrade the kernel to the minimum version or higher.
+/home/j.framinan/TFG_repo/Transformers_2/denoising_diffusion_pytorch/continuous_classifier_free_guidance.py:963: UserWarning: WARNING: Your effective batch size (train_batch_size x gradient_accumulate_every) is 8, which is less than 16. It is recommended to use at least 16 or above.
+  warnings.warn(f"WARNING: Your effective batch size (train_batch_size x gradient_accumulate_every) is {train_batch_size * gradient_accumulate_every}, which is less than 16. It is recommended to use at least 16 or above.")
+/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/utils/data/dataloader.py:558: UserWarning: This DataLoader will create 4 worker processes in total. Our suggested max number of worker in current system is 1, which is smaller than what this DataLoader is going to create. Please be aware that excessive worker creation might get DataLoader running slow or even freeze, lower the worker number to avoid potential slowness/freeze if necessary.
+  warnings.warn(_create_warning_msg(
+========================================================================
+Training starts
+========================================================================
+  0%|          | 0/60000 [00:00<?, ?it/s]loss: 1.00098:   0%|          | 0/60000 [00:08<?, ?it/s]loss: 1.00098:   0%|          | 1/60000 [00:08<146:04:19,  8.76s/it]loss: 0.99575:   0%|          | 1/60000 [00:16<146:04:19,  8.76s/it]loss: 0.99575:   0%|          | 2/60000 [00:16<133:23:39,  8.00s/it]loss: 0.99452:   0%|          | 2/60000 [00:23<133:23:39,  8.00s/it]loss: 0.99452:   0%|          | 3/60000 [00:23<128:21:03,  7.70s/it]loss: 0.99085:   0%|          | 3/60000 [00:30<128:21:03,  7.70s/it]loss: 0.99085:   0%|          | 4/60000 [00:30<126:04:23,  7.56s/it]loss: 0.98938:   0%|          | 4/60000 [00:38<126:04:23,  7.56s/it]loss: 0.98938:   0%|          | 5/60000 [00:38<124:50:33,  7.49s/it]loss: 0.98294:   0%|          | 5/60000 [00:45<124:50:33,  7.49s/it]loss: 0.98294:   0%|          | 6/60000 [00:45<124:06:13,  7.45s/it]loss: 0.98404:   0%|          | 6/60000 [00:53<124:06:13,  7.45s/it]loss: 0.98404:   0%|          | 7/60000 [00:53<123:35:34,  7.42s/it]loss: 0.98040:   0%|          | 7/60000 [01:00<123:35:34,  7.42s/it]loss: 0.98040:   0%|          | 8/60000 [01:00<123:15:56,  7.40s/it]slurmstepd: error: *** JOB 39083 ON n007 CANCELLED AT 2026-04-12T12:58:21 ***

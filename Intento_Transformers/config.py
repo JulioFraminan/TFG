@@ -30,6 +30,7 @@ GRADIENT_CHECKPOINTING = True  # ↑ Enabled (saves ~30% intermediate activation
 
 # Codec latente determinista (downsample/upsample)
 # Se mantiene el prefijo VAE_* para compatibilidad con checkpoints previos.
+USE_VAE = True
 VAE_LATENT_CHANNELS = 1
 VAE_COMPRESSION_RATIO = 6      # Balance: detail vs tokens (39k tokens)
 
@@ -58,6 +59,9 @@ GENERATE_ANGLES    = [95, 100, 110, 120, 130, 140, 150, 160, 170, 180]
 #  RUTAS Y DIRECTORIOS
 # ══════════════════════════════════════════════════════════════════════════
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+VAE_CHECKPOINT_PATH = os.path.abspath(
+    os.path.join(BASE_DIR, "..", "unet_ae_modular", "output", "unet_ae_model.pt")
+)
 DATA_FOLDER = os.path.join(BASE_DIR, "input")
 VALIDATION_FOLDER = os.path.join(DATA_FOLDER, "validation")
 OUTPUT_FOLDER = os.path.join(BASE_DIR, "output")

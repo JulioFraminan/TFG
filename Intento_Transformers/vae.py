@@ -1,159 +1,209 @@
-"""
-VAE wrapper using pretrained conditional UNet Autoencoder from unet_ae_modular.
-Wraps encode/decode to handle conditioning automatically.
-"""
+"""Optional VAE support with safe fallback to deterministic latent codec."""
+
+import importlib.util
+import os
 
 import torch
 import torch.nn as nn
-import math
-import sys
-import os
-import importlib.util
+import torch.nn.functional as F
+
+
+def _freeze_module(module):
+    module.eval()
+    for param in module.parameters():
+        param.requires_grad = False
 
 
 class UNetAEFromCheckpoint(nn.Module):
-    """Load and wrap ConditionalUNetAE from unet_ae_modular checkpoint."""
+    """Load ConditionalUNetAE from unet_ae_modular checkpoint."""
 
     def __init__(self, checkpoint_path):
         super().__init__()
-        # Import the UNet AE model class using importlib to avoid namespace conflicts
+
+        if not checkpoint_path or not os.path.isfile(checkpoint_path):
+            raise FileNotFoundError(
+                f"UNet AE checkpoint not found: {checkpoint_path}"
+            )
+
         unet_ae_model_path = os.path.join(
             os.path.dirname(__file__), "..", "unet_ae_modular", "model.py"
         )
         spec = importlib.util.spec_from_file_location("unet_ae_model", unet_ae_model_path)
+        if spec is None or spec.loader is None:
+            raise RuntimeError(f"Could not import UNet model from: {unet_ae_model_path}")
+
         unet_ae_model_module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(unet_ae_model_module)
         ConditionalUNetAE = unet_ae_model_module.ConditionalUNetAE
-        
-        # Instantiate and load
+
         self.unet_ae = ConditionalUNetAE()
-        checkpoint = torch.load(checkpoint_path, map_location="cpu")
-        
-        # Handle both direct state dict and wrapped state dict
-        if "model_state_dict" in checkpoint:
+        checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+
+        if isinstance(checkpoint, dict) and "model_state_dict" in checkpoint:
             state_dict = checkpoint["model_state_dict"]
-        elif "state_dict" in checkpoint:
+        elif isinstance(checkpoint, dict) and "state_dict" in checkpoint:
             state_dict = checkpoint["state_dict"]
         else:
             state_dict = checkpoint
-        
-        self.unet_ae.load_state_dict(state_dict, strict=False)
+
+        missing, unexpected = self.unet_ae.load_state_dict(state_dict, strict=False)
         print(f"[VAE] Loaded ConditionalUNetAE checkpoint from {checkpoint_path}")
+        if missing:
+            print(f"[VAE][WARN] Missing keys while loading UNet AE: {len(missing)}")
+        if unexpected:
+            print(f"[VAE][WARN] Unexpected keys while loading UNet AE: {len(unexpected)}")
 
     def encode(self, x, cond):
-        """
-        Encode image to bottleneck representation.
-        
-        Args:
-            x: (B, 1, H, W) image tensor
-            cond: (B, 1) conditioning (angle) tensor, normalized to [0, 1]
-        
-        Returns:
-            z: (B, 256, H/8, W/8) latent tensor
-        """
-        e1, e2, e3, b = self.unet_ae.encode(x, cond)
-        # b is bottleneck with shape (B, 256, H/8, W/8)
-        return b
+        """Encode image in [0, 1] to bottleneck latent."""
+        _, _, _, bottleneck = self.unet_ae.encode(x, cond)
+        return bottleneck
 
     def decode(self, z, cond, output_shape):
-        """
-        Decode latent to image.
-        
-        Args:
-            z: (B, 256, H/8, W/8) latent tensor
-            cond: (B, 1) conditioning tensor
-            output_shape: (H, W) target output shape
-        
-        Returns:
-            x: (B, 1, H, W) reconstructed image
-        """
-        # Reconstruct skip connections (simplified: use encoder on dummy input)
-        # For now, we'll create dummy skip connections of appropriate shape
-        b, c, h, w = z.shape
-        
-        # Create dummy skip connections with correct spatial dims
-        # e1: (B, 32, H, W), e2: (B, 64, H/2, W/2), e3: (B, 128, H/4, W/4)
+        """Decode latent using decoder path with zero skip placeholders."""
+        bsz, _, h_lat, w_lat = z.shape
         device = z.device
-        e1_dummy = torch.zeros(b, 32, h * 8, w * 8, device=device)
-        e2_dummy = torch.zeros(b, 64, h * 4, w * 4, device=device)
-        e3_dummy = torch.zeros(b, 128, h * 2, w * 2, device=device)
-        
-        # Decode with dummy skip connections
-        x = self.unet_ae.decode(e1_dummy, e2_dummy, e3_dummy, z, cond)
-        
-        # Resize to target output shape if needed
-        if x.shape[2:] != output_shape:
-            import torch.nn.functional as F
-            x = F.interpolate(x, size=output_shape, mode="bicubic", align_corners=False)
-        
-        return x
+        dtype = z.dtype
+
+        e1_dummy = torch.zeros(bsz, 32, h_lat * 8, w_lat * 8, device=device, dtype=dtype)
+        e2_dummy = torch.zeros(bsz, 64, h_lat * 4, w_lat * 4, device=device, dtype=dtype)
+        e3_dummy = torch.zeros(bsz, 128, h_lat * 2, w_lat * 2, device=device, dtype=dtype)
+
+        x_01 = self.unet_ae.decode(e1_dummy, e2_dummy, e3_dummy, z, cond)
+        if x_01.shape[2:] != output_shape:
+            x_01 = F.interpolate(x_01, size=output_shape, mode="bicubic", align_corners=False)
+        return x_01.clamp(0.0, 1.0)
 
     def forward(self, x, cond):
-        """Full encode-decode cycle."""
         z = self.encode(x, cond)
-        x_recon = self.decode(z, cond, (x.shape[2], x.shape[3]))
-        return x_recon
-    
+        return self.decode(z, cond, (x.shape[2], x.shape[3]))
+
     def latent_shape(self, height, width):
-        """
-        Get latent spatial shape for given input shape.
-        UNet AE has 3 pooling operations, so latent is 1/8 of input.
-        """
-        h_lat = height // 8
-        w_lat = width // 8
+        h_lat = max(1, int(height) // 8)
+        w_lat = max(1, int(width) // 8)
         return h_lat, w_lat
 
 
 class VAECodec(nn.Module):
-    """
-    VAE Codec interface compatible with DiT training.
-    """
-    
-    def __init__(self, vae_model, normalizer=None):
-        """
-        Args:
-            vae_model: UNetAEFromCheckpoint instance
-            normalizer: Normalizer object with normalize_angle() method
-        """
+    """Codec wrapper compatible with DiT pipeline (input/output in [-1, 1])."""
+
+    def __init__(self, vae_model):
         super().__init__()
         self.vae = vae_model
-        self.normalizer = normalizer
-        # VAE has 256 latent channels at 1/8 resolution
         self.latent_channels = 256
 
+    @staticmethod
+    def _default_cond(batch_size, device, dtype):
+        return torch.zeros(batch_size, 1, device=device, dtype=dtype)
+
     def encode(self, x, cond=None):
-        """
-        Encode image to latent space.
-        
-        Args:
-            x: (B, 1, H, W) image in [-1, 1]
-            cond: (B, 1) angle conditioning (already normalized)
-        
-        Returns:
-            z: (B, 256, H/8, W/8) latent
-        """
         if cond is None:
-            cond = torch.zeros(x.shape[0], 1, device=x.device)
-        
-        return self.vae.encode(x, cond)
+            cond = self._default_cond(x.shape[0], x.device, x.dtype)
+        x_01 = torch.clamp((x + 1.0) * 0.5, 0.0, 1.0)
+        return self.vae.encode(x_01, cond)
 
     def decode(self, z, output_shape, cond=None):
-        """
-        Decode from latent to image space.
-        
-        Args:
-            z: (B, 256, H/8, W/8) latent
-            output_shape: (H, W) target output size
-            cond: (B, 1) angle conditioning
-        
-        Returns:
-            x: (B, 1, H, W) reconstructed image
-        """
         if cond is None:
-            cond = torch.zeros(z.shape[0], 1, device=z.device)
-        
-        return self.vae.decode(z, cond, output_shape)
+            cond = self._default_cond(z.shape[0], z.device, z.dtype)
+        x_01 = self.vae.decode(z, cond, output_shape)
+        x = x_01 * 2.0 - 1.0
+        return x.clamp(-1.0, 1.0)
 
     def latent_shape(self, height, width):
-        """Get latent shape for input dimensions."""
         return self.vae.latent_shape(height, width)
+
+
+def build_codec(
+    device,
+    use_vae=False,
+    vae_checkpoint_path=None,
+    fallback_compression_ratio=8,
+    fallback_latent_channels=1,
+    verbose=True,
+):
+    """Create VAE codec when possible, otherwise fallback to LatentCodec."""
+    from model import LatentCodec
+
+    if use_vae:
+        try:
+            vae_model = UNetAEFromCheckpoint(vae_checkpoint_path).to(device)
+            _freeze_module(vae_model)
+
+            codec = VAECodec(vae_model).to(device)
+            _freeze_module(codec)
+
+            info = {
+                "codec_type": "vae",
+                "vae_checkpoint_path": vae_checkpoint_path,
+                "latent_channels": int(codec.latent_channels),
+                "compression_ratio": 8.0,
+            }
+            if verbose:
+                print(f"[CODEC] Using VAE codec from: {vae_checkpoint_path}")
+            return codec, info
+        except Exception as exc:
+            if verbose:
+                print(f"[CODEC][WARN] VAE unavailable ({exc}); falling back to LatentCodec")
+
+    codec = LatentCodec(
+        compression_ratio=fallback_compression_ratio,
+        latent_channels=fallback_latent_channels,
+    ).to(device)
+    codec.eval()
+
+    info = {
+        "codec_type": "latent",
+        "vae_checkpoint_path": None,
+        "latent_channels": int(fallback_latent_channels),
+        "compression_ratio": float(fallback_compression_ratio),
+    }
+    if verbose:
+        print(
+            "[CODEC] Using deterministic LatentCodec "
+            f"(ratio={fallback_compression_ratio}, channels={fallback_latent_channels})"
+        )
+    return codec, info
+
+
+def build_codec_from_checkpoint(
+    checkpoint,
+    device,
+    default_use_vae=False,
+    default_vae_checkpoint_path=None,
+    default_compression_ratio=8,
+    default_latent_channels=1,
+    verbose=True,
+):
+    """Rebuild codec from checkpoint metadata with backward compatibility."""
+
+    state_dict = None
+    for key in ("model_state_dict", "state_dict", "model", "ema", "ema_model_state_dict"):
+        if key in checkpoint and isinstance(checkpoint[key], dict):
+            state_dict = checkpoint[key]
+            break
+
+    codec_type = str(checkpoint.get("codec_type", "")).strip().lower()
+    if "latent_channels" in checkpoint:
+        latent_channels = checkpoint.get("latent_channels")
+    elif state_dict is not None and "patch_embed.weight" in state_dict:
+        latent_channels = int(state_dict["patch_embed.weight"].shape[1])
+    else:
+        latent_channels = default_latent_channels
+
+    vae_checkpoint_path = checkpoint.get("vae_checkpoint_path", default_vae_checkpoint_path)
+
+    if codec_type == "":
+        inferred_vae = bool(vae_checkpoint_path) and int(latent_channels) >= 64
+        use_vae = bool(default_use_vae) or inferred_vae
+    else:
+        use_vae = codec_type == "vae"
+
+    compression_ratio = checkpoint.get("compression_ratio", default_compression_ratio)
+
+    return build_codec(
+        device=device,
+        use_vae=use_vae,
+        vae_checkpoint_path=vae_checkpoint_path,
+        fallback_compression_ratio=int(round(float(compression_ratio))),
+        fallback_latent_channels=int(latent_channels),
+        verbose=verbose,
+    )

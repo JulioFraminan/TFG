@@ -13,25 +13,21 @@ import numpy as np
 import torch
 
 from config import (
-    ATTENTION_CHUNK_SIZE,
     DATA_FOLDER,
     DIT_MODEL_PATH,
-    MLP_RATIO,
-    MODEL_DEPTH,
-    MODEL_HIDDEN_SIZE,
-    MODEL_NUM_HEADS,
-    MODEL_PATCH_SIZE,
     ROI_CORNER,
     ROI_HEIGHT,
     ROI_MODE,
     ROI_WIDTH,
     ROIS_PER_PLANE,
+    USE_VAE,
     VAE_COMPRESSION_RATIO,
+    VAE_CHECKPOINT_PATH,
     VAE_LATENT_CHANNELS,
 )
 from data_utils import Normalizer, load_all_rois
-from generate import generate_samples_ddim
-from model import DiT, LatentCodec
+from generate import _build_model_from_checkpoint, _load_checkpoint_with_recovery, generate_samples_ddim
+from vae import build_codec_from_checkpoint
 
 
 def main():
@@ -43,40 +39,25 @@ def main():
         print("Run train.py first.")
         sys.exit(1)
 
-    checkpoint = torch.load(DIT_MODEL_PATH, map_location=device)
+    checkpoint, ckpt_path_used = _load_checkpoint_with_recovery(DIT_MODEL_PATH, device)
+    print(f"Loaded checkpoint: {ckpt_path_used}")
 
-    latent_channels = int(checkpoint.get("latent_channels", VAE_LATENT_CHANNELS))
-    hidden_size = int(checkpoint.get("hidden_size", MODEL_HIDDEN_SIZE))
-    depth = int(checkpoint.get("depth", MODEL_DEPTH))
-    num_heads = int(checkpoint.get("num_heads", MODEL_NUM_HEADS))
-    mlp_ratio = float(checkpoint.get("mlp_ratio", MLP_RATIO))
-    patch_size = int(checkpoint.get("patch_size", MODEL_PATCH_SIZE))
     diffusion_steps = int(checkpoint.get("diffusion_steps", 1000))
-    attention_chunk_size = int(checkpoint.get("attention_chunk_size", ATTENTION_CHUNK_SIZE))
 
     roi_h = int(checkpoint.get("roi_height", ROI_HEIGHT))
     roi_w = int(checkpoint.get("roi_width", ROI_WIDTH))
-    compression_ratio = int(checkpoint.get("compression_ratio", VAE_COMPRESSION_RATIO))
+    model = _build_model_from_checkpoint(checkpoint, device)
 
-    model = DiT(
-        latent_channels=latent_channels,
-        hidden_size=hidden_size,
-        depth=depth,
-        num_heads=num_heads,
-        mlp_ratio=mlp_ratio,
-        num_diffusion_steps=diffusion_steps,
-        patch_size=patch_size,
-        attention_chunk_size=attention_chunk_size,
-    ).to(device)
-    state_key = "ema_model_state_dict" if "ema_model_state_dict" in checkpoint else "model_state_dict"
-    model.load_state_dict(checkpoint[state_key], strict=False)
-    print(f"Using checkpoint weights: {state_key}")
-    model.eval()
-
-    codec = LatentCodec(
-        compression_ratio=compression_ratio,
-        latent_channels=latent_channels,
-    ).to(device)
+    codec, codec_info = build_codec_from_checkpoint(
+        checkpoint=checkpoint,
+        device=device,
+        default_use_vae=USE_VAE,
+        default_vae_checkpoint_path=VAE_CHECKPOINT_PATH,
+        default_compression_ratio=VAE_COMPRESSION_RATIO,
+        default_latent_channels=VAE_LATENT_CHANNELS,
+        verbose=True,
+    )
+    print(f"Codec restored: {codec_info.get('codec_type', 'latent')}")
 
     if all(k in checkpoint for k in ("tl_min", "tl_max", "angle_min", "angle_max")):
         norm = Normalizer.from_checkpoint(checkpoint)

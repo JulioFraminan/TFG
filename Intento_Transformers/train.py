@@ -4,6 +4,7 @@ import math
 import random
 import sys
 import gc
+import shutil
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
@@ -19,6 +20,8 @@ from torch.utils.data import DataLoader, TensorDataset
 from config import (
     ATTENTION_CHUNK_SIZE,
     BATCH_SIZE,
+    BETA_END,
+    BETA_START,
     DATA_FOLDER,
     DIFFUSION_SCHEDULE,
     DIFFUSION_STEPS,
@@ -41,7 +44,9 @@ from config import (
     ROIS_PER_PLANE,
     TRAIN_PNG_FOLDER,
     USE_AUGMENTATION,
+    USE_VAE,
     VAE_COMPRESSION_RATIO,
+    VAE_CHECKPOINT_PATH,
     VAE_LATENT_CHANNELS,
     VALIDATION_DDIM_STEPS,
     VALIDATION_FOLDER,
@@ -61,7 +66,8 @@ from data_utils import (
     save_mat,
 )
 from generate import generate_samples_ddim
-from model import DiT, LatentCodec
+from model import DiT
+from vae import build_codec
 
 
 def format_seconds(seconds):
@@ -120,6 +126,24 @@ def _update_ema(ema_state, model, decay):
 def _is_oom_error(err):
     msg = str(err).lower()
     return isinstance(err, torch.cuda.OutOfMemoryError) or "out of memory" in msg
+
+
+def _atomic_torch_save(payload, path):
+    """Write checkpoints atomically to avoid truncated/corrupted .pt files."""
+    tmp_path = f"{path}.tmp"
+    prev_path = f"{path}.prev"
+
+    try:
+        torch.save(payload, tmp_path)
+        if os.path.exists(path):
+            try:
+                shutil.copy2(path, prev_path)
+            except OSError as err:
+                print(f"[WARN] Could not create checkpoint backup {prev_path}: {err}")
+        os.replace(tmp_path, path)
+    finally:
+        if os.path.exists(tmp_path):
+            os.remove(tmp_path)
 
 
 def main():
@@ -194,23 +218,32 @@ def main():
     )
     print(f"Batches per epoch: {len(loader)}")
 
-    codec = LatentCodec(
-        compression_ratio=VAE_COMPRESSION_RATIO,
-        latent_channels=VAE_LATENT_CHANNELS,
-    ).to(device)
+    codec, codec_info = build_codec(
+        device=device,
+        use_vae=USE_VAE,
+        vae_checkpoint_path=VAE_CHECKPOINT_PATH,
+        fallback_compression_ratio=VAE_COMPRESSION_RATIO,
+        fallback_latent_channels=VAE_LATENT_CHANNELS,
+        verbose=True,
+    )
     latent_h, latent_w = codec.latent_shape(ROI_HEIGHT, ROI_WIDTH)
+    latent_channels = int(getattr(codec, "latent_channels", VAE_LATENT_CHANNELS))
+    compression_ratio_h = float(ROI_HEIGHT) / float(latent_h)
+    compression_ratio_w = float(ROI_WIDTH) / float(latent_w)
     print(
         f"Latent shape: {latent_h} x {latent_w} "
-        f"(channels={VAE_LATENT_CHANNELS}, ratio={VAE_COMPRESSION_RATIO})"
+        f"(channels={latent_channels}, codec={codec_info.get('codec_type', 'latent')})"
     )
 
     model = DiT(
-        latent_channels=VAE_LATENT_CHANNELS,
+        latent_channels=latent_channels,
         hidden_size=MODEL_HIDDEN_SIZE,
         depth=MODEL_DEPTH,
         num_heads=MODEL_NUM_HEADS,
         mlp_ratio=MLP_RATIO,
         num_diffusion_steps=DIFFUSION_STEPS,
+        beta_start=BETA_START,
+        beta_end=BETA_END,
         cond_dim=1,
         patch_size=MODEL_PATCH_SIZE,
         attention_chunk_size=ATTENTION_CHUNK_SIZE,
@@ -260,8 +293,9 @@ def main():
             for oom_try in range(max_oom_retries + 1):
                 try:
                     t = torch.randint(0, DIFFUSION_STEPS, (batch_img.shape[0],), device=device)
+                    with torch.no_grad():
+                        z0 = codec.encode(batch_img, cond=batch_ang).detach()
                     with torch.autocast(device_type=device.type, dtype=torch.float16, enabled=use_amp):
-                        z0 = codec.encode(batch_img)
                         z_t, noise_target = model.diffusion_schedule.q_sample(z0, t)
                         noise_pred = model(z_t, t, batch_ang)
                         diffusion_loss = criterion(noise_pred, noise_target)
@@ -457,11 +491,27 @@ def main():
         )
         _load_state(model, raw_state)
 
+    model_state_cpu = _state_to_cpu(model.state_dict())
+    ema_state_cpu = _state_to_cpu(ema_state)
+    compression_ratio = codec_info.get(
+        "compression_ratio",
+        0.5 * (compression_ratio_h + compression_ratio_w),
+    )
+
     checkpoint = {
-        "model_state_dict": _state_to_cpu(model.state_dict()),
-        "ema_model_state_dict": ema_state,
-        "latent_channels": VAE_LATENT_CHANNELS,
-        "compression_ratio": VAE_COMPRESSION_RATIO,
+        "model_state_dict": model_state_cpu,
+        "ema_model_state_dict": ema_state_cpu,
+        # DiT-main compatible aliases:
+        "model": model_state_cpu,
+        "ema": ema_state_cpu,
+        "codec_type": codec_info.get("codec_type", "latent"),
+        "vae_checkpoint_path": codec_info.get("vae_checkpoint_path"),
+        "latent_channels": latent_channels,
+        "latent_height": latent_h,
+        "latent_width": latent_w,
+        "compression_ratio": float(compression_ratio),
+        "compression_ratio_h": compression_ratio_h,
+        "compression_ratio_w": compression_ratio_w,
         "patch_size": MODEL_PATCH_SIZE,
         "attention_chunk_size": ATTENTION_CHUNK_SIZE,
         "gradient_checkpointing": GRADIENT_CHECKPOINTING,
@@ -471,6 +521,8 @@ def main():
         "mlp_ratio": MLP_RATIO,
         "diffusion_steps": DIFFUSION_STEPS,
         "diffusion_schedule": DIFFUSION_SCHEDULE,
+        "beta_start": BETA_START,
+        "beta_end": BETA_END,
         "ema_decay": EMA_DECAY,
         "grad_accum_steps": GRAD_ACCUM_STEPS,
         "validation_ddim_steps": VALIDATION_DDIM_STEPS,
@@ -478,9 +530,11 @@ def main():
         "roi_width": ROI_WIDTH,
         **norm.state_dict(),
     }
-    torch.save(checkpoint, DIT_MODEL_PATH)
+    _atomic_torch_save(checkpoint, DIT_MODEL_PATH)
     print("=" * 70)
     print(f"Checkpoint saved to: {DIT_MODEL_PATH}")
+    if os.path.exists(f"{DIT_MODEL_PATH}.prev"):
+        print(f"Previous checkpoint backup: {DIT_MODEL_PATH}.prev")
     print("Done.")
     print("=" * 70)
 

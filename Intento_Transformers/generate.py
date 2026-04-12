@@ -11,6 +11,8 @@ import torch
 
 from config import (
     ATTENTION_CHUNK_SIZE,
+    BETA_END,
+    BETA_START,
     DATA_FOLDER,
     DIFFUSION_STEPS,
     DIT_MODEL_PATH,
@@ -28,12 +30,15 @@ from config import (
     ROI_MODE,
     ROI_WIDTH,
     ROIS_PER_PLANE,
+    USE_VAE,
     VAE_COMPRESSION_RATIO,
+    VAE_CHECKPOINT_PATH,
     VAE_LATENT_CHANNELS,
     create_all_dirs,
 )
 from data_utils import Normalizer, compute_error_metrics, load_all_rois, save_mat
-from model import DiT, LatentCodec
+from model import DiT
+from vae import build_codec_from_checkpoint
 
 
 def ddim_sample_latent(model, z_t, timesteps, conditioning=None, eta=0.0):
@@ -108,7 +113,8 @@ def generate_samples_ddim(
         eta=eta,
     )
 
-    x_0 = codec.decode(z_0, output_shape=output_shape)
+    with torch.no_grad():
+        x_0 = codec.decode(z_0, output_shape=output_shape, cond=cond_tensor)
     gen_np = x_0.detach().cpu().numpy()[:, 0, :, :]
 
     gen_norm_01 = np.clip((gen_np + 1.0) / 2.0, 0.0, 1.0)
@@ -120,14 +126,57 @@ def generate_samples_ddim(
 
 
 def _build_model_from_checkpoint(checkpoint, device):
-    latent_channels = int(checkpoint.get("latent_channels", VAE_LATENT_CHANNELS))
-    hidden_size = int(checkpoint.get("hidden_size", MODEL_HIDDEN_SIZE))
-    depth = int(checkpoint.get("depth", MODEL_DEPTH))
-    num_heads = int(checkpoint.get("num_heads", MODEL_NUM_HEADS))
-    mlp_ratio = float(checkpoint.get("mlp_ratio", MLP_RATIO))
-    patch_size = int(checkpoint.get("patch_size", MODEL_PATCH_SIZE))
-    diffusion_steps = int(checkpoint.get("diffusion_steps", DIFFUSION_STEPS))
+    state_key = _pick_state_key(checkpoint)
+    state_dict = checkpoint[state_key]
+
+    patch_weight = state_dict.get("patch_embed.weight")
+    if patch_weight is not None:
+        inferred_hidden = int(patch_weight.shape[0])
+        inferred_latent_channels = int(patch_weight.shape[1])
+        inferred_patch_size = int(patch_weight.shape[2])
+    else:
+        inferred_hidden = MODEL_HIDDEN_SIZE
+        inferred_latent_channels = VAE_LATENT_CHANNELS
+        inferred_patch_size = MODEL_PATCH_SIZE
+
+    inferred_depth = len(
+        {
+            int(key.split(".")[1])
+            for key in state_dict.keys()
+            if key.startswith("blocks.") and key.split(".")[1].isdigit()
+        }
+    )
+    if inferred_depth <= 0:
+        inferred_depth = MODEL_DEPTH
+
+    if inferred_hidden % 32 == 0:
+        inferred_heads = max(1, inferred_hidden // 32)
+    else:
+        inferred_heads = max(1, MODEL_NUM_HEADS)
+        while inferred_hidden % inferred_heads != 0 and inferred_heads > 1:
+            inferred_heads -= 1
+
+    mlp_fc1 = state_dict.get("blocks.0.mlp.fc1.weight")
+    inferred_mlp_ratio = (
+        float(mlp_fc1.shape[0]) / float(inferred_hidden)
+        if mlp_fc1 is not None and inferred_hidden > 0
+        else MLP_RATIO
+    )
+
+    betas = state_dict.get("diffusion_schedule.betas")
+    inferred_diffusion_steps = int(betas.shape[0]) if betas is not None else DIFFUSION_STEPS
+
+    latent_channels = int(checkpoint.get("latent_channels", inferred_latent_channels))
+    hidden_size = int(checkpoint.get("hidden_size", inferred_hidden))
+    depth = int(checkpoint.get("depth", inferred_depth))
+    num_heads = int(checkpoint.get("num_heads", inferred_heads))
+    mlp_ratio = float(checkpoint.get("mlp_ratio", inferred_mlp_ratio))
+    patch_size = int(checkpoint.get("patch_size", inferred_patch_size))
+    diffusion_steps = int(checkpoint.get("diffusion_steps", inferred_diffusion_steps))
     attention_chunk_size = int(checkpoint.get("attention_chunk_size", ATTENTION_CHUNK_SIZE))
+    gradient_checkpointing = bool(checkpoint.get("gradient_checkpointing", False))
+    beta_start = float(checkpoint.get("beta_start", BETA_START))
+    beta_end = float(checkpoint.get("beta_end", BETA_END))
 
     model = DiT(
         latent_channels=latent_channels,
@@ -136,13 +185,15 @@ def _build_model_from_checkpoint(checkpoint, device):
         num_heads=num_heads,
         mlp_ratio=mlp_ratio,
         num_diffusion_steps=diffusion_steps,
+        beta_start=beta_start,
+        beta_end=beta_end,
         cond_dim=1,
         patch_size=patch_size,
         attention_chunk_size=attention_chunk_size,
+        gradient_checkpointing=gradient_checkpointing,
     ).to(device)
 
-    state_key = "ema_model_state_dict" if "ema_model_state_dict" in checkpoint else "model_state_dict"
-    missing, unexpected = model.load_state_dict(checkpoint[state_key], strict=False)
+    missing, unexpected = model.load_state_dict(state_dict, strict=False)
     print(f"Using checkpoint weights: {state_key}")
     if missing:
         print(f"[WARN] Missing keys while loading checkpoint: {len(missing)}")
@@ -151,6 +202,28 @@ def _build_model_from_checkpoint(checkpoint, device):
 
     model.eval()
     return model
+
+
+def _pick_state_key(checkpoint):
+    for key in ("ema", "ema_model_state_dict", "model", "model_state_dict"):
+        if key in checkpoint:
+            return key
+    raise KeyError("Checkpoint does not contain model weights")
+
+
+def _load_checkpoint_with_recovery(path, device):
+    try:
+        return torch.load(path, map_location=device, weights_only=False), path
+    except Exception as err:
+        prev_path = f"{path}.prev"
+        if os.path.isfile(prev_path):
+            print(f"[WARN] Failed to load checkpoint {path}: {err}")
+            print(f"[WARN] Trying backup checkpoint: {prev_path}")
+            return torch.load(prev_path, map_location=device, weights_only=False), prev_path
+        raise RuntimeError(
+            f"Failed to load checkpoint at {path}. "
+            f"Error: {err}. Retrain or restore a valid checkpoint."
+        ) from err
 
 
 def main():
@@ -164,18 +237,23 @@ def main():
             f"Checkpoint not found: {DIT_MODEL_PATH}. Train first with train.py"
         )
 
-    checkpoint = torch.load(DIT_MODEL_PATH, map_location=device)
+    checkpoint, ckpt_path_used = _load_checkpoint_with_recovery(DIT_MODEL_PATH, device)
+    print(f"Loaded checkpoint: {ckpt_path_used}")
     model = _build_model_from_checkpoint(checkpoint, device)
 
-    compression_ratio = int(checkpoint.get("compression_ratio", VAE_COMPRESSION_RATIO))
-    latent_channels = int(checkpoint.get("latent_channels", VAE_LATENT_CHANNELS))
     roi_h = int(checkpoint.get("roi_height", ROI_HEIGHT))
     roi_w = int(checkpoint.get("roi_width", ROI_WIDTH))
 
-    codec = LatentCodec(
-        compression_ratio=compression_ratio,
-        latent_channels=latent_channels,
-    ).to(device)
+    codec, codec_info = build_codec_from_checkpoint(
+        checkpoint=checkpoint,
+        device=device,
+        default_use_vae=USE_VAE,
+        default_vae_checkpoint_path=VAE_CHECKPOINT_PATH,
+        default_compression_ratio=VAE_COMPRESSION_RATIO,
+        default_latent_channels=VAE_LATENT_CHANNELS,
+        verbose=True,
+    )
+    print(f"Codec restored: {codec_info.get('codec_type', 'latent')}")
 
     if all(k in checkpoint for k in ("tl_min", "tl_max", "angle_min", "angle_max")):
         norm = Normalizer.from_checkpoint(checkpoint)
