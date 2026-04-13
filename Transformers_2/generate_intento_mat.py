@@ -19,6 +19,7 @@ if str(SCRIPT_DIR) not in sys.path:
 
 from denoising_diffusion_pytorch.continuous_classifier_free_guidance import GaussianDiffusion, Unet  # noqa: E402
 from denoising_diffusion_pytorch.dit import DiT_models  # noqa: E402
+from config import get_generate_arg_defaults  # noqa: E402
 from intento_mat_utils import (  # noqa: E402
     DatasetBundle,
     NormalizationStats,
@@ -35,6 +36,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Generate conditioned MAT/PNG samples from train_intento_mat.py checkpoints"
     )
+    defaults = get_generate_arg_defaults()
     parser.add_argument("--results-folder", type=str, default="results/intento_mat/dit_gaussian")
     parser.add_argument("--metadata-path", type=str, default="")
     parser.add_argument("--checkpoint", type=str, default="")
@@ -49,6 +51,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output-subdir", type=str, default="generate")
     parser.add_argument("--with-reference", action="store_true")
     parser.add_argument("--seed", type=int, default=42)
+
+    parser.set_defaults(**defaults)
 
     return parser.parse_args()
 

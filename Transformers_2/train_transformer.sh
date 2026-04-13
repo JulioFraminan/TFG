@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=2_Transformer
+#SBATCH --job-name=1_Transformer
 #SBATCH --nodes=1
 #SBATCH --nodelist=n008
 #SBATCH --ntasks=1
@@ -11,7 +11,7 @@
 #SBATCH --output=logs/out-%x-%j.log
 #SBATCH --error=logs/err-%x-%j.log
 
-export CUDA_VISIBLE_DEVICES="2"
+export CUDA_VISIBLE_DEVICES="1"
 
 echo "Starting job"
 date

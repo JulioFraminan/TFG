@@ -5,9 +5,8 @@ import random
 import shutil
 import sys
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Set, Tuple
 
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 from torch.utils.data import TensorDataset
@@ -24,19 +23,19 @@ from denoising_diffusion_pytorch.continuous_classifier_free_guidance import (  #
     GaussianDiffusion,
     Trainer,
     Unet,
-    evaluate_model,
 )
 from denoising_diffusion_pytorch.dit import DiT_models  # noqa: E402
+from config import get_train_arg_defaults  # noqa: E402
 from intento_mat_utils import (  # noqa: E402
     NormalizationStats,
     DatasetBundle,
     default_intento_input_folder,
     default_intento_validation_folder,
-    denormalize_fields_01,
     ensure_min_samples,
     load_rois_from_folder,
     normalize_angles,
     normalize_fields_01,
+    parse_angle_list,
     resize_fields,
 )
 
@@ -44,6 +43,14 @@ from intento_mat_utils import (  # noqa: E402
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Train diffusion models on Intento_Transformers .mat/.h5 data using Transformers_2 infrastructure"
+    )
+    defaults = get_train_arg_defaults(str(REPO_ROOT))
+
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="",
+        help="Optional JSON config file. Keys match argparse destination names.",
     )
 
     parser.add_argument("--input-folder", type=str, default=default_intento_input_folder(str(REPO_ROOT)))
@@ -58,6 +65,13 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--train-height", type=int, default=256)
     parser.add_argument("--train-width", type=int, default=512)
+    parser.add_argument(
+        "--quality-profile",
+        type=str,
+        choices=["none", "8h-balanced", "8h-highres"],
+        default="none",
+        help="Optional preset to improve quality without changing pipeline structure.",
+    )
 
     parser.add_argument("--model-type", type=str, choices=["unet", "dit"], default="dit")
     parser.add_argument("--dit-variant", type=str, default="DiT-XXS/2")
@@ -108,14 +122,72 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--disable-lr-scheduler", action="store_true")
     parser.add_argument("--use-cpu", action="store_true")
 
-    parser.add_argument("--eval-after-train", action="store_true")
-    parser.add_argument("--eval-batch-size", type=int, default=16)
-    parser.add_argument("--eval-max-samples", type=int, default=6)
+    parser.add_argument("--skip-post-validation", action="store_true")
+    parser.add_argument("--validation-output-subdir", type=str, default="validation")
+    parser.add_argument("--validation-angles", type=str, default="")
+    parser.add_argument("--validation-cond-scale", type=float, default=2.5)
+    parser.add_argument("--validation-sampler", type=str, choices=["ddpm", "ddim"], default="ddim")
+    parser.add_argument("--validation-num-inference-steps", type=int, default=-1)
+    parser.add_argument("--validation-rows-per-page", type=int, default=6)
+    parser.add_argument("--validation-max-samples", type=int, default=-1)
 
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--results-folder", type=str, default="results/intento_mat/dit_gaussian")
 
+    parser.set_defaults(**defaults)
+
     return parser.parse_args()
+
+
+def _explicit_cli_destinations(argv: list[str]) -> Set[str]:
+    explicit: Set[str] = set()
+    for token in argv[1:]:
+        if not token.startswith("--"):
+            continue
+        key = token[2:].split("=", 1)[0].strip()
+        if not key:
+            continue
+        explicit.add(key.replace("-", "_"))
+    return explicit
+
+
+def _apply_config_file(args: argparse.Namespace, explicit_cli_dests: Set[str]) -> None:
+    if not args.config:
+        return
+
+    config_path = Path(args.config)
+    if not config_path.is_absolute():
+        config_path = (PROJECT_DIR / config_path).resolve()
+
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+
+    with config_path.open("r", encoding="utf-8") as handle:
+        config_data = json.load(handle)
+
+    if not isinstance(config_data, dict):
+        raise ValueError("Config file must contain a JSON object at top-level")
+
+    valid_keys = set(vars(args).keys())
+    unknown_keys = sorted([key for key in config_data.keys() if key not in valid_keys])
+    if unknown_keys:
+        raise KeyError(
+            "Unknown keys in config file: "
+            f"{', '.join(unknown_keys)}. "
+            "Use argparse destination names (example: train_num_steps, train_batch_size)."
+        )
+
+    applied = []
+    for key, value in config_data.items():
+        # CLI options win over config values.
+        if key in explicit_cli_dests and key != "config":
+            continue
+        setattr(args, key, value)
+        applied.append(key)
+
+    print(f"[config] Loaded {config_path}")
+    if applied:
+        print(f"[config] Applied keys: {', '.join(sorted(applied))}")
 
 
 def parse_dim_mults(dim_mults_text: str) -> Tuple[int, ...]:
@@ -150,6 +222,131 @@ def _replace_variant_patch_size(variant_name: str, patch_size: int) -> str:
 
 def _token_count(train_h: int, train_w: int, patch_size: int) -> int:
     return (train_h // patch_size) * (train_w // patch_size)
+
+
+def _bytes_to_gib(value: float) -> float:
+    return float(value) / float(1024 ** 3)
+
+
+def _apply_quality_profile(args: argparse.Namespace) -> None:
+    if args.quality_profile == "none":
+        return
+
+    base_defaults = {
+        "train_height": 256,
+        "train_width": 512,
+        "dit_variant": "DiT-XXS/2",
+        "dit_mlp_ratio": 2.5,
+        "dit_qk_norm": False,
+        "dit_class_dropout": 0.2,
+        "max_vanilla_attn_tokens": 4096,
+        "train_batch_size": 8,
+        "gradient_accumulate_every": 1,
+        "train_lr": 2e-4,
+        "train_num_steps": 60000,
+        "save_and_sample_every": 10000,
+        "objective": "pred_noise",
+        "min_snr_loss_weight": False,
+        "sampling_timesteps": 300,
+        "validation_cond_scale": 2.5,
+        "validation_num_inference_steps": -1,
+    }
+
+    if args.quality_profile == "8h-balanced":
+        overrides = {
+            "train_height": 320,
+            "train_width": 960,
+            "dit_variant": "DiT-S/8",
+            "dit_mlp_ratio": 3.0,
+            "dit_qk_norm": True,
+            "dit_class_dropout": 0.10,
+            "max_vanilla_attn_tokens": 6500,
+            "train_batch_size": 4,
+            "gradient_accumulate_every": 4,
+            "train_lr": 1.2e-4,
+            "train_num_steps": 260000,
+            "save_and_sample_every": 20000,
+            "objective": "pred_v",
+            "min_snr_loss_weight": True,
+            "sampling_timesteps": 350,
+            "validation_cond_scale": 2.0,
+            "validation_num_inference_steps": 450,
+        }
+    else:
+        overrides = {
+            "train_height": 384,
+            "train_width": 1152,
+            "dit_variant": "DiT-B/8",
+            "dit_mlp_ratio": 3.5,
+            "dit_qk_norm": True,
+            "dit_class_dropout": 0.08,
+            "max_vanilla_attn_tokens": 7500,
+            "train_batch_size": 2,
+            "gradient_accumulate_every": 6,
+            "train_lr": 8e-5,
+            "train_num_steps": 320000,
+            "save_and_sample_every": 25000,
+            "objective": "pred_v",
+            "min_snr_loss_weight": True,
+            "sampling_timesteps": 400,
+            "validation_cond_scale": 2.0,
+            "validation_num_inference_steps": 500,
+        }
+
+    for key, value in overrides.items():
+        current = getattr(args, key)
+        default_value = base_defaults.get(key, None)
+        if key in base_defaults and current != default_value:
+            continue
+        setattr(args, key, value)
+
+    print(
+        f"[profile] Applied quality profile: {args.quality_profile} | "
+        f"res=({args.train_height},{args.train_width}) | "
+        f"variant={args.dit_variant} | batch={args.train_batch_size} x accum={args.gradient_accumulate_every}"
+    )
+
+
+def _print_dit_memory_report(args: argparse.Namespace, model: torch.nn.Module, token_count: int) -> None:
+    hidden_size = int(getattr(model, "hidden_size", 0))
+    num_heads = int(getattr(model, "num_heads", 1))
+    depth = int(getattr(model, "depth", 0))
+    if depth <= 0:
+        blocks = getattr(model, "blocks", None)
+        if blocks is not None:
+            depth = len(blocks)
+    if depth <= 0:
+        depth = 1
+
+    bytes_per_value = 2 if args.amp and args.mixed_precision_type in ("fp16", "bf16") else 4
+
+    # Rough estimate of major activations in one transformer block during attention.
+    attn_scores_bytes = args.train_batch_size * num_heads * token_count * token_count * bytes_per_value
+    qkv_bytes = args.train_batch_size * token_count * hidden_size * 3 * bytes_per_value
+    approx_block_bytes = (2.0 * attn_scores_bytes) + qkv_bytes
+    approx_total_bytes = approx_block_bytes * depth
+
+    print(
+        "DiT memory estimate (rough): "
+        f"block~{_bytes_to_gib(approx_block_bytes):.2f} GiB, "
+        f"all_blocks~{_bytes_to_gib(approx_total_bytes):.2f} GiB "
+        f"(micro_batch={args.train_batch_size}, effective_batch={args.train_batch_size * args.gradient_accumulate_every}, "
+        f"precision_bytes={bytes_per_value})."
+    )
+
+
+def _discover_latest_checkpoint(results_folder: Path) -> Path:
+    candidates = []
+    for path in results_folder.glob("model-*.pt"):
+        suffix = path.stem.split("-")[-1]
+        if suffix.isdigit():
+            candidates.append((int(suffix), path))
+
+    if len(candidates) == 0:
+        raise FileNotFoundError(f"No model-*.pt checkpoints found in {results_folder}")
+
+    candidates.sort(key=lambda item: item[0])
+    return candidates[-1][1]
 
 
 def _maybe_auto_adjust_dit_variant(args: argparse.Namespace, train_h: int, train_w: int) -> None:
@@ -322,6 +519,7 @@ def _build_metadata(
         "gradient_accumulate_every": args.gradient_accumulate_every,
         "ema_decay": args.ema_decay,
         "save_and_sample_every": args.save_and_sample_every,
+        "validation_output_subdir": args.validation_output_subdir,
         "tl_min": stats.tl_min,
         "tl_max": stats.tl_max,
         "angle_mean": stats.angle_mean,
@@ -331,45 +529,13 @@ def _build_metadata(
     }
 
 
-def save_eval_figure(
-    output_path: Path,
-    predictions_01: np.ndarray,
-    targets_01: np.ndarray,
-    stats: NormalizationStats,
-    max_samples: int,
-) -> None:
-    n_samples = min(max_samples, predictions_01.shape[0], targets_01.shape[0])
-    if n_samples <= 0:
-        return
-
-    preds = denormalize_fields_01(predictions_01[:n_samples], stats)
-    targs = denormalize_fields_01(targets_01[:n_samples], stats)
-
-    fig, axes = plt.subplots(n_samples, 3, figsize=(14, max(4, 3.5 * n_samples)), squeeze=False)
-    for idx in range(n_samples):
-        real = targs[idx]
-        pred = preds[idx]
-        err = np.abs(pred - real)
-
-        im0 = axes[idx, 0].imshow(real, cmap="jet", origin="lower", aspect="auto", vmin=stats.tl_min, vmax=stats.tl_max)
-        axes[idx, 0].set_title("Validation reference")
-        plt.colorbar(im0, ax=axes[idx, 0], fraction=0.046, pad=0.04)
-
-        im1 = axes[idx, 1].imshow(pred, cmap="jet", origin="lower", aspect="auto", vmin=stats.tl_min, vmax=stats.tl_max)
-        axes[idx, 1].set_title("Model prediction")
-        plt.colorbar(im1, ax=axes[idx, 1], fraction=0.046, pad=0.04)
-
-        im2 = axes[idx, 2].imshow(err, cmap="hot", origin="lower", aspect="auto")
-        axes[idx, 2].set_title("Absolute error")
-        plt.colorbar(im2, ax=axes[idx, 2], fraction=0.046, pad=0.04)
-
-    fig.tight_layout()
-    fig.savefig(output_path, dpi=140)
-    plt.close(fig)
-
-
 def main() -> None:
     args = parse_args()
+
+    explicit_cli_dests = _explicit_cli_destinations(sys.argv)
+    _apply_config_file(args, explicit_cli_dests)
+
+    _apply_quality_profile(args)
     set_seed(args.seed)
 
     results_folder = (PROJECT_DIR / args.results_folder).resolve() if not os.path.isabs(args.results_folder) else Path(args.results_folder)
@@ -428,13 +594,6 @@ def main() -> None:
     train_tensor_c = torch.from_numpy(train_angles_norm[:, None]).float()
     train_dataset = TensorDataset(train_tensor_x, train_tensor_c)
 
-    val_fields_01 = None
-    val_angles_norm = None
-    if val_bundle.rois.size > 0:
-        val_fields_01 = normalize_fields_01(val_bundle.rois, stats)
-        val_fields_01 = resize_fields(val_fields_01, target_h=args.train_height, target_w=args.train_width)
-        val_angles_norm = normalize_angles(val_bundle.angles_deg, stats)
-
     print(f"Training samples used: {len(train_dataset)}")
     print(f"Train image shape: ({args.train_height}, {args.train_width})")
     print(f"TL range: [{stats.tl_min:.4f}, {stats.tl_max:.4f}]")
@@ -450,6 +609,7 @@ def main() -> None:
             f"DiT config: variant={args.dit_variant}, patch_size={patch_size}, "
             f"tokens={token_count}, attn={args.dit_attn_type}"
         )
+        _print_dit_memory_report(args, model=model, token_count=token_count)
 
     params = sum(param.numel() for param in model.parameters())
     print(f"Model parameters: {params:,}")
@@ -489,44 +649,45 @@ def main() -> None:
     print("=" * 72)
     trainer.train()
 
-    if not args.eval_after_train:
-        return
-
-    if val_fields_01 is None or val_angles_norm is None or val_fields_01.shape[0] == 0:
-        print("Validation skipped: no validation .mat files found")
+    if args.skip_post_validation:
+        print("Post-training validation skipped (--skip-post-validation).")
         return
 
     if not trainer.accelerator.is_main_process:
         return
 
-    eval_model = trainer.ema.ema_model if hasattr(trainer, "ema") else trainer.accelerator.unwrap_model(diffusion)
-    eval_model.eval()
+    if val_bundle.rois.size == 0:
+        print("Validation skipped: no validation .mat files found")
+        return
 
-    val_targets = torch.from_numpy(val_fields_01[:, None, :, :]).float()
-    val_conds = torch.from_numpy(val_angles_norm[:, None]).float()
+    try:
+        checkpoint_path = _discover_latest_checkpoint(results_folder)
+    except FileNotFoundError as error:
+        print(f"Validation skipped: {error}")
+        return
 
-    errors, predictions = evaluate_model(
-        eval_model,
-        val_conds,
-        val_targets,
-        args.eval_batch_size,
-        cond_scale=6,
-    )
+    requested_angles = parse_angle_list(args.validation_angles) if args.validation_angles.strip() else []
 
-    print(f"Validation metrics: {errors}")
-    with (results_folder / "validation_metrics.json").open("w", encoding="utf-8") as handle:
-        clean_errors = {key: float(value) for key, value in errors.items()}
-        json.dump(clean_errors, handle, indent=2)
+    from validation import run_validation
 
-    predictions_np = predictions.detach().cpu().numpy()[:, 0, :, :]
-    predictions_np = np.clip(predictions_np, 0.0, 1.0)
+    print("=" * 72)
+    print("Running post-training validation report")
+    print("=" * 72)
 
-    save_eval_figure(
-        output_path=results_folder / "validation_preview.png",
-        predictions_01=predictions_np,
-        targets_01=val_fields_01,
-        stats=stats,
-        max_samples=args.eval_max_samples,
+    run_validation(
+        results_folder=results_folder,
+        metadata=metadata,
+        checkpoint_path=checkpoint_path,
+        prefer_ema=True,
+        validation_folder_override=args.validation_folder,
+        requested_angles=requested_angles,
+        output_subdir=args.validation_output_subdir,
+        cond_scale=args.validation_cond_scale,
+        sampler=args.validation_sampler,
+        num_inference_steps=args.validation_num_inference_steps,
+        rows_per_page=args.validation_rows_per_page,
+        max_samples=args.validation_max_samples,
+        seed=args.seed,
     )
 
 

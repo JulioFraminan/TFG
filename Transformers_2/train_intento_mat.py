@@ -5,7 +5,7 @@ import random
 import shutil
 import sys
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict, Set, Tuple
 
 import numpy as np
 import torch
@@ -25,6 +25,7 @@ from denoising_diffusion_pytorch.continuous_classifier_free_guidance import (  #
     Unet,
 )
 from denoising_diffusion_pytorch.dit import DiT_models  # noqa: E402
+from config import get_train_arg_defaults  # noqa: E402
 from intento_mat_utils import (  # noqa: E402
     NormalizationStats,
     DatasetBundle,
@@ -43,6 +44,14 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Train diffusion models on Intento_Transformers .mat/.h5 data using Transformers_2 infrastructure"
     )
+    defaults = get_train_arg_defaults(str(REPO_ROOT))
+
+    parser.add_argument(
+        "--config",
+        type=str,
+        default="",
+        help="Optional JSON config file. Keys match argparse destination names.",
+    )
 
     parser.add_argument("--input-folder", type=str, default=default_intento_input_folder(str(REPO_ROOT)))
     parser.add_argument("--validation-folder", type=str, default=default_intento_validation_folder(str(REPO_ROOT)))
@@ -56,6 +65,13 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--train-height", type=int, default=256)
     parser.add_argument("--train-width", type=int, default=512)
+    parser.add_argument(
+        "--quality-profile",
+        type=str,
+        choices=["none", "8h-balanced", "8h-highres"],
+        default="none",
+        help="Optional preset to improve quality without changing pipeline structure.",
+    )
 
     parser.add_argument("--model-type", type=str, choices=["unet", "dit"], default="dit")
     parser.add_argument("--dit-variant", type=str, default="DiT-XXS/2")
@@ -109,7 +125,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--skip-post-validation", action="store_true")
     parser.add_argument("--validation-output-subdir", type=str, default="validation")
     parser.add_argument("--validation-angles", type=str, default="")
-    parser.add_argument("--validation-cond-scale", type=float, default=6.0)
+    parser.add_argument("--validation-cond-scale", type=float, default=2.5)
     parser.add_argument("--validation-sampler", type=str, choices=["ddpm", "ddim"], default="ddim")
     parser.add_argument("--validation-num-inference-steps", type=int, default=-1)
     parser.add_argument("--validation-rows-per-page", type=int, default=6)
@@ -118,7 +134,60 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--results-folder", type=str, default="results/intento_mat/dit_gaussian")
 
+    parser.set_defaults(**defaults)
+
     return parser.parse_args()
+
+
+def _explicit_cli_destinations(argv: list[str]) -> Set[str]:
+    explicit: Set[str] = set()
+    for token in argv[1:]:
+        if not token.startswith("--"):
+            continue
+        key = token[2:].split("=", 1)[0].strip()
+        if not key:
+            continue
+        explicit.add(key.replace("-", "_"))
+    return explicit
+
+
+def _apply_config_file(args: argparse.Namespace, explicit_cli_dests: Set[str]) -> None:
+    if not args.config:
+        return
+
+    config_path = Path(args.config)
+    if not config_path.is_absolute():
+        config_path = (PROJECT_DIR / config_path).resolve()
+
+    if not config_path.exists():
+        raise FileNotFoundError(f"Config file not found: {config_path}")
+
+    with config_path.open("r", encoding="utf-8") as handle:
+        config_data = json.load(handle)
+
+    if not isinstance(config_data, dict):
+        raise ValueError("Config file must contain a JSON object at top-level")
+
+    valid_keys = set(vars(args).keys())
+    unknown_keys = sorted([key for key in config_data.keys() if key not in valid_keys])
+    if unknown_keys:
+        raise KeyError(
+            "Unknown keys in config file: "
+            f"{', '.join(unknown_keys)}. "
+            "Use argparse destination names (example: train_num_steps, train_batch_size)."
+        )
+
+    applied = []
+    for key, value in config_data.items():
+        # CLI options win over config values.
+        if key in explicit_cli_dests and key != "config":
+            continue
+        setattr(args, key, value)
+        applied.append(key)
+
+    print(f"[config] Loaded {config_path}")
+    if applied:
+        print(f"[config] Applied keys: {', '.join(sorted(applied))}")
 
 
 def parse_dim_mults(dim_mults_text: str) -> Tuple[int, ...]:
@@ -153,6 +222,117 @@ def _replace_variant_patch_size(variant_name: str, patch_size: int) -> str:
 
 def _token_count(train_h: int, train_w: int, patch_size: int) -> int:
     return (train_h // patch_size) * (train_w // patch_size)
+
+
+def _bytes_to_gib(value: float) -> float:
+    return float(value) / float(1024 ** 3)
+
+
+def _apply_quality_profile(args: argparse.Namespace) -> None:
+    if args.quality_profile == "none":
+        return
+
+    base_defaults = {
+        "train_height": 256,
+        "train_width": 512,
+        "dit_variant": "DiT-XXS/2",
+        "dit_mlp_ratio": 2.5,
+        "dit_qk_norm": False,
+        "dit_class_dropout": 0.2,
+        "max_vanilla_attn_tokens": 4096,
+        "train_batch_size": 8,
+        "gradient_accumulate_every": 1,
+        "train_lr": 2e-4,
+        "train_num_steps": 60000,
+        "save_and_sample_every": 10000,
+        "objective": "pred_noise",
+        "min_snr_loss_weight": False,
+        "sampling_timesteps": 300,
+        "validation_cond_scale": 2.5,
+        "validation_num_inference_steps": -1,
+    }
+
+    if args.quality_profile == "8h-balanced":
+        overrides = {
+            "train_height": 320,
+            "train_width": 960,
+            "dit_variant": "DiT-S/8",
+            "dit_mlp_ratio": 3.0,
+            "dit_qk_norm": True,
+            "dit_class_dropout": 0.10,
+            "max_vanilla_attn_tokens": 6500,
+            "train_batch_size": 4,
+            "gradient_accumulate_every": 4,
+            "train_lr": 1.2e-4,
+            "train_num_steps": 260000,
+            "save_and_sample_every": 20000,
+            "objective": "pred_v",
+            "min_snr_loss_weight": True,
+            "sampling_timesteps": 350,
+            "validation_cond_scale": 2.0,
+            "validation_num_inference_steps": 450,
+        }
+    else:
+        overrides = {
+            "train_height": 384,
+            "train_width": 1152,
+            "dit_variant": "DiT-B/8",
+            "dit_mlp_ratio": 3.5,
+            "dit_qk_norm": True,
+            "dit_class_dropout": 0.08,
+            "max_vanilla_attn_tokens": 7500,
+            "train_batch_size": 2,
+            "gradient_accumulate_every": 6,
+            "train_lr": 8e-5,
+            "train_num_steps": 320000,
+            "save_and_sample_every": 25000,
+            "objective": "pred_v",
+            "min_snr_loss_weight": True,
+            "sampling_timesteps": 400,
+            "validation_cond_scale": 2.0,
+            "validation_num_inference_steps": 500,
+        }
+
+    for key, value in overrides.items():
+        current = getattr(args, key)
+        default_value = base_defaults.get(key, None)
+        if key in base_defaults and current != default_value:
+            continue
+        setattr(args, key, value)
+
+    print(
+        f"[profile] Applied quality profile: {args.quality_profile} | "
+        f"res=({args.train_height},{args.train_width}) | "
+        f"variant={args.dit_variant} | batch={args.train_batch_size} x accum={args.gradient_accumulate_every}"
+    )
+
+
+def _print_dit_memory_report(args: argparse.Namespace, model: torch.nn.Module, token_count: int) -> None:
+    hidden_size = int(getattr(model, "hidden_size", 0))
+    num_heads = int(getattr(model, "num_heads", 1))
+    depth = int(getattr(model, "depth", 0))
+    if depth <= 0:
+        blocks = getattr(model, "blocks", None)
+        if blocks is not None:
+            depth = len(blocks)
+    if depth <= 0:
+        depth = 1
+
+    bytes_per_value = 2 if args.amp and args.mixed_precision_type in ("fp16", "bf16") else 4
+
+    # Rough estimate of major activations in one transformer block during attention.
+    attn_scores_bytes = args.train_batch_size * num_heads * token_count * token_count * bytes_per_value
+    qkv_bytes = args.train_batch_size * token_count * hidden_size * 3 * bytes_per_value
+    approx_block_bytes = (2.0 * attn_scores_bytes) + qkv_bytes
+    approx_total_bytes = approx_block_bytes * depth
+
+    print(
+        "DiT memory estimate (rough): "
+        f"block~{_bytes_to_gib(approx_block_bytes):.2f} GiB, "
+        f"all_blocks~{_bytes_to_gib(approx_total_bytes):.2f} GiB "
+        f"(micro_batch={args.train_batch_size}, effective_batch={args.train_batch_size * args.gradient_accumulate_every}, "
+        f"precision_bytes={bytes_per_value})."
+    )
 
 
 def _discover_latest_checkpoint(results_folder: Path) -> Path:
@@ -351,6 +531,11 @@ def _build_metadata(
 
 def main() -> None:
     args = parse_args()
+
+    explicit_cli_dests = _explicit_cli_destinations(sys.argv)
+    _apply_config_file(args, explicit_cli_dests)
+
+    _apply_quality_profile(args)
     set_seed(args.seed)
 
     results_folder = (PROJECT_DIR / args.results_folder).resolve() if not os.path.isabs(args.results_folder) else Path(args.results_folder)
@@ -424,6 +609,7 @@ def main() -> None:
             f"DiT config: variant={args.dit_variant}, patch_size={patch_size}, "
             f"tokens={token_count}, attn={args.dit_attn_type}"
         )
+        _print_dit_memory_report(args, model=model, token_count=token_count)
 
     params = sum(param.numel() for param in model.parameters())
     print(f"Model parameters: {params:,}")

@@ -1,0 +1,13 @@
+{
+  "quality_profile": "8h-highres",
+  "train_batch_size": 3,
+  "gradient_accumulate_every": 6,
+  "train_num_steps": 6000,
+  "save_and_sample_every": 1000,
+  "validation_cond_scale": 2.0,
+  "validation_num_inference_steps": 500,
+  "amp": true,
+  "mixed_precision_type": "bf16",
+  "compile_model": true,
+  "results_folder": "results/intento_mat/dit_gaussian"
+}

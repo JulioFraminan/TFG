@@ -41,6 +41,7 @@
   "gradient_accumulate_every": 1,
   "ema_decay": 0.995,
   "save_and_sample_every": 10000,
+  "validation_output_subdir": "validation",
   "tl_min": -100.0,
   "tl_max": -4.174161911010742,
   "angle_mean": 42.76315689086914,
