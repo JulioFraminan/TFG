@@ -1,11 +1,12 @@
 import argparse
+import hashlib
 import json
 import os
 import random
 import shutil
 import sys
 from pathlib import Path
-from typing import Dict, Set, Tuple
+from typing import Any, Dict, Optional, Set, Tuple
 
 import numpy as np
 import torch
@@ -133,6 +134,25 @@ def parse_args() -> argparse.Namespace:
 
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--results-folder", type=str, default="results/intento_mat/dit_gaussian")
+    parser.add_argument(
+        "--results-layout",
+        type=str,
+        choices=["legacy", "by_config"],
+        default="by_config",
+        help="legacy: write directly in results-folder. by_config: isolate each compatible config in cfg_<hash>.",
+    )
+    parser.add_argument(
+        "--resume-if-compatible",
+        dest="resume_if_compatible",
+        action="store_true",
+        help="When a compatible config folder already has checkpoints, resume from its latest milestone.",
+    )
+    parser.add_argument(
+        "--no-resume-if-compatible",
+        dest="resume_if_compatible",
+        action="store_false",
+        help="Disable automatic resume even if compatible checkpoints exist.",
+    )
 
     parser.set_defaults(**defaults)
 
@@ -147,7 +167,10 @@ def _explicit_cli_destinations(argv: list[str]) -> Set[str]:
         key = token[2:].split("=", 1)[0].strip()
         if not key:
             continue
-        explicit.add(key.replace("-", "_"))
+        normalized = key.replace("-", "_")
+        explicit.add(normalized)
+        if normalized.startswith("no_") and len(normalized) > 3:
+            explicit.add(normalized[3:])
     return explicit
 
 
@@ -335,18 +358,98 @@ def _print_dit_memory_report(args: argparse.Namespace, model: torch.nn.Module, t
     )
 
 
+CHECKPOINT_SUBDIR = "checkpoints"
+COLORED_GRIDS_SUBDIR = "colored_grids"
+
+
+def _checkpoint_search_dirs(results_folder: Path) -> Tuple[Path, ...]:
+    return (
+        results_folder / CHECKPOINT_SUBDIR,
+        results_folder,
+    )
+
+
+def _iter_checkpoint_candidates(results_folder: Path):
+    for directory in _checkpoint_search_dirs(results_folder):
+        if not directory.exists():
+            continue
+        for path in directory.glob("model-*.pt"):
+            suffix = path.stem.split("-")[-1]
+            if suffix.isdigit():
+                yield int(suffix), path
+
+
 def _discover_latest_checkpoint(results_folder: Path) -> Path:
-    candidates = []
-    for path in results_folder.glob("model-*.pt"):
-        suffix = path.stem.split("-")[-1]
-        if suffix.isdigit():
-            candidates.append((int(suffix), path))
+    candidates = list(_iter_checkpoint_candidates(results_folder))
 
     if len(candidates) == 0:
-        raise FileNotFoundError(f"No model-*.pt checkpoints found in {results_folder}")
+        searched = ", ".join(str(path) for path in _checkpoint_search_dirs(results_folder))
+        raise FileNotFoundError(f"No model-*.pt checkpoints found in: {searched}")
 
     candidates.sort(key=lambda item: item[0])
     return candidates[-1][1]
+
+
+def _discover_latest_milestone(results_folder: Path) -> int | None:
+    candidates = list(_iter_checkpoint_candidates(results_folder))
+    if len(candidates) == 0:
+        return None
+    candidates.sort(key=lambda item: item[0])
+    return candidates[-1][0]
+
+
+_CONFIG_SIGNATURE_EXCLUDED_KEYS = {
+    "config",
+    "results_folder",
+    "results_layout",
+    "resume_if_compatible",
+    "train_num_steps",
+    "save_and_sample_every",
+    "num_samples",
+    "skip_post_validation",
+    "validation_output_subdir",
+    "validation_angles",
+    "validation_cond_scale",
+    "validation_sampler",
+    "validation_num_inference_steps",
+    "validation_rows_per_page",
+    "validation_max_samples",
+}
+
+
+def _json_stable_value(value: Any) -> Any:
+    if isinstance(value, Path):
+        return str(value)
+    if isinstance(value, tuple):
+        return [_json_stable_value(item) for item in value]
+    if isinstance(value, list):
+        return [_json_stable_value(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _json_stable_value(val) for key, val in sorted(value.items(), key=lambda item: str(item[0]))}
+    if isinstance(value, float):
+        return round(value, 12)
+    return value
+
+
+def _build_config_signature(args: argparse.Namespace) -> str:
+    payload = {
+        key: _json_stable_value(value)
+        for key, value in sorted(vars(args).items())
+        if key not in _CONFIG_SIGNATURE_EXCLUDED_KEYS
+    }
+    payload_json = json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
+    return hashlib.sha1(payload_json.encode("utf-8")).hexdigest()[:12]
+
+
+def _resolve_results_folder(args: argparse.Namespace) -> tuple[Path, Path, Optional[str]]:
+    base_folder = (PROJECT_DIR / args.results_folder).resolve() if not os.path.isabs(args.results_folder) else Path(args.results_folder)
+
+    if args.results_layout == "legacy":
+        return base_folder, base_folder, None
+
+    signature = _build_config_signature(args)
+    resolved_folder = base_folder / f"cfg_{signature}"
+    return base_folder, resolved_folder, signature
 
 
 def _maybe_auto_adjust_dit_variant(args: argparse.Namespace, train_h: int, train_w: int) -> None:
@@ -536,10 +639,20 @@ def main() -> None:
     _apply_config_file(args, explicit_cli_dests)
 
     _apply_quality_profile(args)
+
+    # Keep signature and final model config aligned when auto patch-size adjustment is enabled.
+    _maybe_auto_adjust_dit_variant(args, train_h=args.train_height, train_w=args.train_width)
+
     set_seed(args.seed)
 
-    results_folder = (PROJECT_DIR / args.results_folder).resolve() if not os.path.isabs(args.results_folder) else Path(args.results_folder)
+    base_results_folder, results_folder, config_signature = _resolve_results_folder(args)
     results_folder.mkdir(parents=True, exist_ok=True)
+
+    print(f"[results] Base folder: {base_results_folder}")
+    if config_signature is not None:
+        print(f"[results] Config signature: {config_signature} -> {results_folder}")
+    else:
+        print(f"[results] Legacy layout folder: {results_folder}")
 
     roi_corner = (args.roi_corner_x, args.roi_corner_z)
 
@@ -634,9 +747,39 @@ def main() -> None:
         use_cpu=args.use_cpu,
         use_lr_scheduler=not args.disable_lr_scheduler,
         compile_model=args.compile_model,
+        checkpoint_subdir=CHECKPOINT_SUBDIR,
+        sample_subdir=COLORED_GRIDS_SUBDIR,
     )
 
+    resumed_from: int | None = None
+    if args.resume_if_compatible:
+        try:
+            latest_checkpoint_path = _discover_latest_checkpoint(results_folder)
+        except FileNotFoundError:
+            latest_checkpoint_path = None
+
+        if latest_checkpoint_path is not None:
+            latest_milestone = int(latest_checkpoint_path.stem.split("-")[-1])
+            try:
+                trainer.load(latest_milestone, checkpoint_path=latest_checkpoint_path)
+                resumed_from = latest_milestone
+                print(f"[resume] Loaded {latest_checkpoint_path} | step={trainer.step}")
+            except Exception as error:
+                print(
+                    "[resume][WARN] Could not resume from latest checkpoint "
+                    f"{latest_checkpoint_path}: {error}. "
+                    "Training will start from scratch."
+                )
+
     metadata = _build_metadata(args, stats, train_bundle, val_bundle)
+    metadata["results_layout"] = args.results_layout
+    metadata["results_base_folder"] = str(base_results_folder)
+    metadata["resolved_results_folder"] = str(results_folder)
+    metadata["config_signature"] = config_signature
+    metadata["resume_if_compatible"] = bool(args.resume_if_compatible)
+    metadata["resumed_from_milestone"] = resumed_from
+    metadata["checkpoint_subdir"] = CHECKPOINT_SUBDIR
+    metadata["colored_grid_subdir"] = COLORED_GRIDS_SUBDIR
     metadata_path = results_folder / "intento_training_metadata.json"
     with metadata_path.open("w", encoding="utf-8") as handle:
         json.dump(metadata, handle, indent=2)

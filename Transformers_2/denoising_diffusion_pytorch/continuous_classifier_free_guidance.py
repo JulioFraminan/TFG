@@ -914,6 +914,8 @@ class Trainer:
         save_and_sample_every = 1000,
         num_samples = 25,
         results_folder = './results',
+        checkpoint_subdir = '',
+        sample_subdir = '',
         amp = False,
         mixed_precision_type = 'bf16',
         split_batches = True,
@@ -996,6 +998,15 @@ class Trainer:
         self.results_folder = Path(results_folder)
         self.results_folder.mkdir(exist_ok = True)
 
+        checkpoint_subdir = str(checkpoint_subdir).strip()
+        sample_subdir = str(sample_subdir).strip()
+
+        self.checkpoint_folder = self.results_folder / checkpoint_subdir if checkpoint_subdir else self.results_folder
+        self.sample_folder = self.results_folder / sample_subdir if sample_subdir else self.results_folder
+
+        self.checkpoint_folder.mkdir(parents = True, exist_ok = True)
+        self.sample_folder.mkdir(parents = True, exist_ok = True)
+
         # step counter state
 
         self.step = 0
@@ -1034,13 +1045,16 @@ class Trainer:
             'loss_history': torch.tensor(self.all_losses)
         }
 
-        torch.save(data, str(self.results_folder / f'model-{milestone}.pt'))
+        torch.save(data, str(self.checkpoint_folder / f'model-{milestone}.pt'))
 
-    def load(self, milestone):
+    def load(self, milestone, checkpoint_path = None):
         accelerator = self.accelerator
         device = accelerator.device
 
-        data = torch.load(str(self.results_folder / f'model-{milestone}.pt'), map_location=device, weights_only=True)
+        if checkpoint_path is None:
+            checkpoint_path = self.checkpoint_folder / f'model-{milestone}.pt'
+
+        data = torch.load(str(checkpoint_path), map_location=device, weights_only=True)
 
         model = self.accelerator.unwrap_model(self.model)
         model.load_state_dict(data['model'])
@@ -1131,7 +1145,7 @@ class Trainer:
                             ax.set_title(cond_title)
                             plt.colorbar(im, ax=ax)
                             ax.axis('off')
-                        plt.savefig(self.results_folder / f"colored_grid{milestone}.png", bbox_inches="tight", pad_inches=0)
+                        plt.savefig(self.sample_folder / f"colored_grid{milestone}.png", bbox_inches="tight", pad_inches=0)
                         plt.close()
                         # whether to calculate fid
                         milestone = self.step // self.save_and_sample_every

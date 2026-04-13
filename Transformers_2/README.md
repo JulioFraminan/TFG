@@ -1,231 +1,205 @@
-## Install
+# Transformers_2: flujo MAT/H5 para DiT
 
-```bash
-$ pip install denoising_diffusion_pytorch
+Este directorio contiene el flujo activo para entrenar y generar planos TL condicionados por angulo usando los scripts:
+- train_intento_mat.py
+- generate_intento_mat.py
+- validation.py
+
+El objetivo es trabajar con archivos PlaneAngle*.mat/.h5 y producir salidas en PNG y MAT con coordenadas fisicas.
+
+## Estructura activa
+
+```text
+Transformers_2/
+├── config.py                       # Defaults centralizados (train + generate)
+├── train_intento_mat.py            # Entrenamiento principal
+├── generate_intento_mat.py         # Generacion condicionada desde checkpoints
+├── validation.py                   # Validacion real vs generado
+├── intento_mat_utils.py            # Carga MAT/H5, ROI, normalizacion, guardado
+├── denoising_diffusion_pytorch/    # Implementacion de DiT/UNet/diffusion
+├── results/                        # Salidas de entrenamiento y generacion
+├── logs/                           # Logs de ejecucion
+├── No_usar/                        # Scripts movidos (no usados en este flujo)
+├── train_transformer.sh            # Wrapper opcional (no requerido)
+├── gen_transformer.sh              # Wrapper opcional (no requerido)
+└── val_transformer.sh              # Wrapper opcional (no requerido)
 ```
 
-## Intento_Transformers MAT/H5 workflow
+## Dependencias de train_intento_mat.py
 
-This repository now includes a ready pipeline to train and generate on
-`PlaneAngle*.mat` files from `../Intento_Transformers/input`.
+Dependencias directas del script de entrenamiento:
+- config.py: defaults de argumentos (train + runtime).
+- intento_mat_utils.py: IO MAT/H5, ROI, normalizacion, resize, parsing de angulos.
+- denoising_diffusion_pytorch/continuous_classifier_free_guidance.py: Unet, GaussianDiffusion, Trainer.
+- denoising_diffusion_pytorch/dit.py: catalogo de variantes DiT.
+- validation.py: reporte post-train (opcional).
 
-New scripts:
+```mermaid
+flowchart TD
+  A[train_intento_mat.py] --> B[config.py]
+  A --> C[intento_mat_utils.py]
+  A --> D[denoising_diffusion_pytorch/continuous_classifier_free_guidance.py]
+  A --> E[denoising_diffusion_pytorch/dit.py]
+  A --> F[validation.py]
+  F --> G[generate_intento_mat.py helpers]
+  G --> C
+```
 
-- `intento_mat_utils.py`: ROI extraction + `.mat/.h5` IO compatible with
-    the Intento_Transformers dataset format.
-- `train_intento_mat.py`: training with model and algorithm switches.
-- `generate_intento_mat.py`: conditioned generation to PNG + MAT.
-- `validation.py`: standalone validation report (real vs generated vs error).
+## Flujo real
 
-### Train (UNet or DiT, GaussianDiffusion or FlowMatching)
+```mermaid
+flowchart LR
+    A[PlaneAngle*.mat/.h5 en ../Intento_Transformers/input] --> B[train_intento_mat.py]
+    B --> C[intento_training_metadata.json]
+    B --> D[checkpoints/model-*.pt]
+    B --> E[validation.py post-train opcional]
+    C --> F[generate_intento_mat.py]
+    D --> F
+    C --> E
+    D --> E
+    F --> G[results/.../generate/PNG + MAT + generation_summary.json]
+    E --> H[results/.../validation/PNG + MAT + CSV + summary.json]
+```
 
-Example DiT + GaussianDiffusion:
+## Flujo interno completo de train_intento_mat.py
+
+1. Parsea argumentos CLI y aplica defaults desde config.py.
+2. Si se pasa --config JSON, mezcla claves validas respetando prioridad de CLI.
+3. Aplica quality profile si corresponde.
+4. Ajusta de forma preventiva la variante DiT para mantener tokens seguros en atencion vanilla.
+5. Resuelve carpeta de resultados.
+6. Carga datos de entrenamiento desde MAT/H5 y extrae ROIs.
+7. Carga validacion si hay carpeta disponible.
+8. Calcula estadisticas de normalizacion (TL y angulo) usando train.
+9. Normaliza campos y condicion, redimensiona a train_height x train_width, y garantiza minimo de muestras.
+10. Construye modelo (UNet o DiT) y envoltura de difusion (Gaussian o FlowMatching).
+11. Inicializa Trainer con salida organizada en subcarpetas.
+12. Si resume_if_compatible esta activo, reanuda desde el ultimo checkpoint compatible (checkpoints/ o layout legacy).
+13. Guarda metadata del experimento y copia scripts usados.
+14. Ejecuta entrenamiento.
+15. Si no se desactiva, lanza validacion post-train usando el ultimo checkpoint descubierto.
+
+Detalle del paso 5 (carpeta de resultados):
+- modo by_config: results/.../cfg_<firma>
+- modo legacy: results/... directo
+
+Detalle del paso 11 (subcarpetas):
+- checkpoints/ para model-*.pt
+- colored_grids/ para colored_grid*.png
+
+## Como se aplican los parametros
+
+Los defaults de train y generate salen de config.py.
+
+Orden de prioridad en entrenamiento:
+1. Argumentos CLI (por ejemplo --train-num-steps 200000)
+2. JSON pasado con --config (si existe)
+3. Defaults de config.py
+
+Orden de prioridad en generacion:
+1. Argumentos CLI
+2. Defaults de config.py
+
+Importante:
+- El script de generacion reconstruye arquitectura y difusion desde intento_training_metadata.json del experimento.
+- Cambiar config.py no modifica checkpoints antiguos; afecta a nuevas ejecuciones o a parametros de runtime no persistidos en metadata.
+- En layout by_config, cada firma de configuracion usa su propia carpeta cfg_<hash> para evitar mezclar checkpoints incompatibles.
+
+## Entrenamiento
+
+Ejemplo minimo:
+
+```bash
+python train_intento_mat.py
+```
+
+Ejemplo recomendado para mejor calidad (si hay VRAM disponible):
 
 ```bash
 python train_intento_mat.py \
-    --model-type dit \
-    --dit-variant DiT-XXS/8 \
-    --algorithm gaussian \
-    --amp \
-    --mixed-precision-type bf16 \
-    --compile-model \
-    --train-height 256 \
-    --train-width 512 \
-    --results-folder results/intento_mat/dit_gaussian
+  --quality-profile 8h-balanced \
+  --amp \
+  --mixed-precision-type bf16
 ```
 
-Example UNet + FlowMatching:
+Ejemplo con config JSON (ademas de config.py):
 
 ```bash
-python train_intento_mat.py \
-    --model-type unet \
-    --algorithm flowmatching \
-    --flow-num-steps 250 \
-    --amp \
-    --mixed-precision-type bf16 \
-    --compile-model \
-    --train-height 256 \
-    --train-width 512 \
-    --results-folder results/intento_mat/unet_flow
+python train_intento_mat.py --config train_config_high_quality.json
 ```
 
-Notes:
+Comportamiento clave del train:
+- Carga datos desde input_folder y validation_folder (por defecto en ../Intento_Transformers/input).
+- Extrae ROI con intento_mat_utils.py.
+- Normaliza TL y angulo.
+- Garantiza minimo de muestras para Trainer (si hace falta, replica con ruido leve).
+- Entrena con DiT o UNet y GaussianDiffusion o FlowMatching.
+- Guarda metadata completa + checkpoints.
+- Ejecuta validacion post-entrenamiento salvo que se use --skip-post-validation.
 
-- Default ROI extraction mirrors Intento_Transformers (`corner_fixed`, corner `(0, 10)`).
-- `Trainer` in this codebase requires at least 100 samples; the script applies a
-    minimal safe augmentation/replication when needed.
-- For DiT with `--dit-attn-type vanilla`, the script now auto-adjusts to a larger
-    patch variant when token count would exceed `--max-vanilla-attn-tokens`
-    (default: 4096).
-- A full validation report is generated automatically at the end of training.
-    You can skip it with `--skip-post-validation`.
-- You can change ROI and conditioning behavior with `--roi-*` arguments.
+## Generacion
 
-### Standalone validation report
+Ejemplo minimo:
 
 ```bash
-python validation.py \
-        --results-folder results/intento_mat/dit_gaussian \
-        --prefer-ema \
-        --sampler ddim \
-        --num-inference-steps 300
+python generate_intento_mat.py --results-folder results/intento_mat/dit_gaussian
 ```
 
-Validation outputs are saved under `results/.../validation/{PNG,MAT}`.
-Plots and exported MAT grids use physical coordinates in meters (`X [m]`, `Z [m]`).
-
-### Generate conditioned planes (PNG + MAT)
+Ejemplo recomendado:
 
 ```bash
 python generate_intento_mat.py \
-    --results-folder results/intento_mat/dit_gaussian \
-    --prefer-ema \
-    --angles "95,100,110,120,130,140,150,160,170,180" \
-    --sampler ddim \
-    --num-inference-steps 300 \
-    --with-reference
+  --results-folder results/intento_mat/dit_gaussian \
+  --prefer-ema \
+  --sampler ddim \
+  --num-inference-steps 400 \
+  --cond-scale 3.0
 ```
 
-For Slurm runs in this repository, use `train_transformer.sh`, `gen_transformer.sh`, and `val_transformer.sh`.
+Comportamiento clave de generate:
+- Lee metadata y checkpoint (explicito, por milestone, o el ultimo disponible).
+- Reconstruye modelo y difusion compatibles con ese entrenamiento.
+- Genera para lista de angulos.
+- Exporta PNG y MAT.
+- Si se usa --with-reference, anade comparacion con muestra real mas cercana y error.
 
-Outputs are saved under:
+## Validacion standalone
 
-- `results/.../generate/PNG`
-- `results/.../generate/MAT`
-
-Generated plots and MAT grids use physical coordinates in meters (`X [m]`, `Z [m]`).
-
-## Usage
-
-```python
-import torch
-from denoising_diffusion_pytorch import Unet, GaussianDiffusion
-
-model = Unet(
-    dim = 64,
-    dim_mults = (1, 2, 4, 8),
-    flash_attn = True
-)
-
-diffusion = GaussianDiffusion(
-    model,
-    image_size = 128,
-    timesteps = 1000    # number of steps
-)
-
-training_images = torch.rand(8, 3, 128, 128) # images are normalized from 0 to 1
-loss = diffusion(training_images)
-loss.backward()
-
-# after a lot of training
-
-sampled_images = diffusion.sample(batch_size = 4)
-sampled_images.shape # (4, 3, 128, 128)
+```bash
+python validation.py \
+  --results-folder results/intento_mat/dit_gaussian \
+  --prefer-ema \
+  --sampler ddim \
+  --num-inference-steps 300
 ```
 
-Or, if you simply want to pass in a folder name and the desired image dimensions, you can use the `Trainer` class to easily train a model.
+## Salidas esperadas por experimento
 
-```python
-from denoising_diffusion_pytorch import Unet, GaussianDiffusion, Trainer
-
-model = Unet(
-    dim = 64,
-    dim_mults = (1, 2, 4, 8),
-    flash_attn = True
-)
-
-diffusion = GaussianDiffusion(
-    model,
-    image_size = 128,
-    timesteps = 1000,           # number of steps
-    sampling_timesteps = 250    # number of sampling timesteps (using ddim for faster inference [see citation for ddim paper])
-)
-
-trainer = Trainer(
-    diffusion,
-    'path/to/your/images',
-    train_batch_size = 32,
-    train_lr = 8e-5,
-    train_num_steps = 700000,         # total training steps
-    gradient_accumulate_every = 2,    # gradient accumulation steps
-    ema_decay = 0.995,                # exponential moving average decay
-    amp = True,                       # turn on mixed precision
-    calculate_fid = True              # whether to calculate fid during training
-)
-
-trainer.train()
+```text
+results/intento_mat/<run>/
+├── checkpoints/
+│   └── model-*.pt
+├── colored_grids/
+│   └── colored_grid*.png
+├── intento_training_metadata.json
+├── train_intento_mat.py              # copia del script usado
+├── intento_mat_utils.py              # copia del utils usado
+├── loss_evolution.png
+├── generate/
+│   ├── PNG/
+│   ├── MAT/
+│   └── generation_summary.json
+└── validation/
+    ├── PNG/
+    ├── MAT/
+    ├── validation_metrics.csv
+    └── validation_summary.json
 ```
 
-Samples and model checkpoints will be logged to `./results` periodically
+## Notas tecnicas utiles
 
-## Multi-GPU Training
-
-The `Trainer` class is now equipped with <a href="https://huggingface.co/docs/accelerate/accelerator">🤗 Accelerator</a>. You can easily do multi-gpu training in two steps using their `accelerate` CLI
-
-At the project root directory, where the training script is, run
-
-```python
-$ accelerate config
-```
-
-Then, in the same directory
-
-```python
-$ accelerate launch train.py
-```
-
-## Miscellaneous
-
-### 1D Sequence
-
-By popular request, a 1D Unet + Gaussian Diffusion implementation.
-
-```python
-import torch
-from denoising_diffusion_pytorch import Unet1D, GaussianDiffusion1D, Trainer1D, Dataset1D
-
-model = Unet1D(
-    dim = 64,
-    dim_mults = (1, 2, 4, 8),
-    channels = 32
-)
-
-diffusion = GaussianDiffusion1D(
-    model,
-    seq_length = 128,
-    timesteps = 1000,
-    objective = 'pred_v'
-)
-
-training_seq = torch.rand(64, 32, 128) # features are normalized from 0 to 1
-
-loss = diffusion(training_seq)
-loss.backward()
-
-# Or using trainer
-
-dataset = Dataset1D(training_seq)  # this is just an example, but you can formulate your own Dataset and pass it into the `Trainer1D` below
-
-trainer = Trainer1D(
-    diffusion,
-    dataset = dataset,
-    train_batch_size = 32,
-    train_lr = 8e-5,
-    train_num_steps = 700000,         # total training steps
-    gradient_accumulate_every = 2,    # gradient accumulation steps
-    ema_decay = 0.995,                # exponential moving average decay
-    amp = True,                       # turn on mixed precision
-)
-trainer.train()
-
-# after a lot of training
-
-sampled_seq = diffusion.sample(batch_size = 4)
-sampled_seq.shape # (4, 32, 128)
-
-```
-
-`Trainer1D` does not evaluate the generated samples in any way since the type of data is not known.
-
-You could consider adding a suitable metric to the training loop yourself after doing an editable install of this package
-`pip install -e .`.
+- Para DiT con atencion vanilla, train_intento_mat.py puede auto-ajustar el patch de la variante para no exceder max_vanilla_attn_tokens.
+- Si quieres fijar manualmente el patch, define dit_variant y max_vanilla_attn_tokens en config.py.
+- Si quality_profile esta en 8h-balanced o 8h-highres, el script aplica un preset orientado a calidad respetando overrides explicitos.
+- Los .sh se pueden seguir usando como wrappers, pero no son necesarios para el flujo Python directo.
+- generate_intento_mat.py y validation.py aceptan checkpoints en checkpoints/ y mantienen compatibilidad con layouts antiguos en raiz.

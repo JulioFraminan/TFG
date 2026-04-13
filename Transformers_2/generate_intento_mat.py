@@ -38,6 +38,18 @@ def parse_args() -> argparse.Namespace:
     )
     defaults = get_generate_arg_defaults()
     parser.add_argument("--results-folder", type=str, default="results/intento_mat/dit_gaussian")
+    parser.add_argument(
+        "--auto-select-config-run",
+        dest="auto_select_config_run",
+        action="store_true",
+        help="If results-folder is a parent folder with multiple cfg_* runs, select the latest one automatically.",
+    )
+    parser.add_argument(
+        "--no-auto-select-config-run",
+        dest="auto_select_config_run",
+        action="store_false",
+        help="Disable automatic selection of cfg_* subfolders.",
+    )
     parser.add_argument("--metadata-path", type=str, default="")
     parser.add_argument("--checkpoint", type=str, default="")
     parser.add_argument("--milestone", type=int, default=-1)
@@ -83,15 +95,67 @@ def _load_metadata(args: argparse.Namespace, results_folder: Path) -> Dict:
         return json.load(handle)
 
 
-def _discover_latest_checkpoint(results_folder: Path) -> Path:
-    candidates = []
+CHECKPOINT_SUBDIR = "checkpoints"
+
+
+def _checkpoint_search_dirs(results_folder: Path) -> Tuple[Path, Path]:
+    return (
+        results_folder / CHECKPOINT_SUBDIR,
+        results_folder,
+    )
+
+
+def _iter_checkpoint_candidates(results_folder: Path) -> Iterable[Tuple[int, Path]]:
     pattern = re.compile(r"model-(\d+)\.pt$")
-    for path in results_folder.glob("model-*.pt"):
-        match = pattern.search(path.name)
-        if match:
-            candidates.append((int(match.group(1)), path))
+    for directory in _checkpoint_search_dirs(results_folder):
+        if not directory.exists():
+            continue
+        for path in directory.glob("model-*.pt"):
+            match = pattern.search(path.name)
+            if match:
+                yield int(match.group(1)), path
+
+
+def _discover_latest_checkpoint(results_folder: Path) -> Path:
+    candidates = list(_iter_checkpoint_candidates(results_folder))
     if not candidates:
-        raise FileNotFoundError(f"No model-*.pt checkpoints found in {results_folder}")
+        searched = ", ".join(str(path) for path in _checkpoint_search_dirs(results_folder))
+        raise FileNotFoundError(f"No model-*.pt checkpoints found in: {searched}")
+    candidates.sort(key=lambda item: item[0])
+    return candidates[-1][1]
+
+
+def _has_run_metadata(folder: Path) -> bool:
+    return (folder / "intento_training_metadata.json").exists()
+
+
+def _latest_artifact_mtime(folder: Path) -> float:
+    latest = 0.0
+    for _, checkpoint_path in _iter_checkpoint_candidates(folder):
+        latest = max(latest, checkpoint_path.stat().st_mtime)
+
+    metadata_path = folder / "intento_training_metadata.json"
+    if metadata_path.exists():
+        latest = max(latest, metadata_path.stat().st_mtime)
+
+    return latest
+
+
+def _auto_select_results_run(results_folder: Path) -> Optional[Path]:
+    if _has_run_metadata(results_folder):
+        return results_folder
+
+    candidates = []
+    for child in results_folder.iterdir():
+        if not child.is_dir():
+            continue
+        if not _has_run_metadata(child):
+            continue
+        candidates.append((_latest_artifact_mtime(child), child))
+
+    if len(candidates) == 0:
+        return None
+
     candidates.sort(key=lambda item: item[0])
     return candidates[-1][1]
 
@@ -100,14 +164,26 @@ def _resolve_checkpoint_path(args: argparse.Namespace, results_folder: Path) -> 
     if args.checkpoint:
         checkpoint_path = _as_abs_path(results_folder, args.checkpoint)
         if not checkpoint_path.exists():
-            raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+            # Backward compatible shorthand: --checkpoint model-21.pt
+            fallback_checkpoint = results_folder / CHECKPOINT_SUBDIR / args.checkpoint
+            if fallback_checkpoint.exists():
+                checkpoint_path = fallback_checkpoint
+            else:
+                raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
         return checkpoint_path
 
     if args.milestone >= 0:
-        checkpoint_path = results_folder / f"model-{args.milestone}.pt"
-        if not checkpoint_path.exists():
-            raise FileNotFoundError(f"Checkpoint milestone not found: {checkpoint_path}")
-        return checkpoint_path
+        candidate_paths = [
+            results_folder / CHECKPOINT_SUBDIR / f"model-{args.milestone}.pt",
+            results_folder / f"model-{args.milestone}.pt",
+        ]
+        for checkpoint_path in candidate_paths:
+            if checkpoint_path.exists():
+                return checkpoint_path
+        raise FileNotFoundError(
+            "Checkpoint milestone not found. Checked: "
+            + ", ".join(str(path) for path in candidate_paths)
+        )
 
     return _discover_latest_checkpoint(results_folder)
 
@@ -281,6 +357,12 @@ def main() -> None:
     results_folder = _as_abs_path(PROJECT_DIR, args.results_folder)
     if not results_folder.exists():
         raise FileNotFoundError(f"Results folder not found: {results_folder}")
+
+    if args.auto_select_config_run:
+        selected_results_folder = _auto_select_results_run(results_folder)
+        if selected_results_folder is not None and selected_results_folder != results_folder:
+            print(f"[results] Auto-selected config run folder: {selected_results_folder}")
+            results_folder = selected_results_folder
 
     metadata = _load_metadata(args, results_folder)
     checkpoint_path = _resolve_checkpoint_path(args, results_folder)

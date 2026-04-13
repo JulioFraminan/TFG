@@ -21,11 +21,11 @@ TRAIN_IMAGE_DEFAULTS: Dict[str, Any] = {
 
 MODEL_DEFAULTS: Dict[str, Any] = {
     "model_type": "dit",
-    "dit_variant": "DiT-XXS/2",
-    "dit_class_dropout": 0.2,
+    "dit_variant": "DiT-S/8",
+    "dit_class_dropout": 0.10,
     "dit_attn_type": "vanilla",
-    "dit_mlp_ratio": 2.5,
-    "dit_qk_norm": False,
+    "dit_mlp_ratio": 3.0,
+    "dit_qk_norm": True,
     "max_vanilla_attn_tokens": 4096,
     "unet_dim": 64,
     "unet_dim_mults": "1,2,4",
@@ -53,18 +53,18 @@ FLOW_DEFAULTS: Dict[str, Any] = {
 }
 
 OPTIMIZATION_DEFAULTS: Dict[str, Any] = {
-    "train_batch_size": 8,
+    "train_batch_size": 16,
     "train_lr": 2e-4,
-    "train_num_steps": 60000,
+    "train_num_steps": 50000,
     "gradient_accumulate_every": 1,
     "ema_decay": 0.995,
-    "save_and_sample_every": 10000,
+    "save_and_sample_every": 1000,
     "num_samples": 9,
     "max_grad_norm": 1.0,
 }
 
 RUNTIME_DEFAULTS: Dict[str, Any] = {
-    "amp": False,
+    "amp": True,
     "mixed_precision_type": "bf16",
     "compile_model": False,
     "split_batches": False,
@@ -87,11 +87,11 @@ GENERATION_DEFAULTS: Dict[str, Any] = {
     "metadata_path": "",
     "checkpoint": "",
     "milestone": -1,
-    "prefer_ema": False,
+    "prefer_ema": True,
     "angles": "95,100,110,120,130,140,150,160,170,180",
-    "cond_scale": 6.0,
+    "cond_scale": 2.5,
     "sampler": "ddim",
-    "num_inference_steps": -1,
+    "num_inference_steps": 400,
     "output_subdir": "generate",
     "with_reference": False,
 }
@@ -114,6 +114,8 @@ def get_train_arg_defaults(repo_root: str) -> Dict[str, Any]:
         "input_folder": _default_input_folder(repo_root_path),
         "validation_folder": _default_validation_folder(repo_root_path),
         "results_folder": DEFAULT_RESULTS_FOLDER,
+        "results_layout": "by_config",
+        "resume_if_compatible": True,
         "seed": SEED_DEFAULT,
     }
     defaults.update(ROI_DEFAULTS)
@@ -130,6 +132,7 @@ def get_train_arg_defaults(repo_root: str) -> Dict[str, Any]:
 def get_generate_arg_defaults() -> Dict[str, Any]:
     defaults = {
         "results_folder": DEFAULT_RESULTS_FOLDER,
+        "auto_select_config_run": True,
         "seed": SEED_DEFAULT,
     }
     defaults.update(GENERATION_DEFAULTS)
