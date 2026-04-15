@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=1_Transformer_val
+#SBATCH --job-name=0_val_Transformer
 #SBATCH --nodes=1
 #SBATCH --nodelist=n008
 #SBATCH --ntasks=1
@@ -11,7 +11,7 @@
 #SBATCH --output=logs/out-%x-%j.log
 #SBATCH --error=logs/err-%x-%j.log
 
-export CUDA_VISIBLE_DEVICES="1"
+export CUDA_VISIBLE_DEVICES="0"
 
 echo "Starting job"
 date
@@ -22,7 +22,7 @@ cd /home/j.framinan/TFG_repo/Transformers_2
 #eval "$(conda shell.bash hook)"
 #conda activate test_env
 
-python -u validation.py --results-folder results/intento_mat/dit_gaussian/cfg_6f0fe854e2cd --milestone 49 --prefer-ema --sampler ddim --num-inference-steps 300 --output-subdir validation_m49 \
+python -u validation.py --results-folder results/intento_mat/dit_gaussian/cfg_d3ec39678d36 --milestone 8 --prefer-ema --sampler ddim --num-inference-steps 300 --output-subdir validation_m8 \
 
 date
 echo "Finished"

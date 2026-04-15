@@ -5,8 +5,10 @@ from typing import Any, Dict
 DEFAULT_RESULTS_FOLDER = "results/intento_mat/dit_gaussian"
 
 ROI_DEFAULTS: Dict[str, Any] = {
-    "roi_height": 700,
-    "roi_width": 2000,
+    #"roi_height": 700,
+    #"roi_width": 2000,
+    "roi_height": 256,
+    "roi_width": 512,
     "rois_per_plane": 1,
     "roi_mode": "corner_fixed",
     "roi_corner_x": 0.0,
@@ -23,7 +25,7 @@ MODEL_DEFAULTS: Dict[str, Any] = {
     "model_type": "dit",
     "dit_variant": "DiT-S/8",
     "dit_class_dropout": 0.10,
-    "dit_attn_type": "vanilla",
+    "dit_attn_type": "linear",
     "dit_mlp_ratio": 3.0,
     "dit_qk_norm": True,
     "max_vanilla_attn_tokens": 4096,
@@ -53,7 +55,7 @@ FLOW_DEFAULTS: Dict[str, Any] = {
 }
 
 OPTIMIZATION_DEFAULTS: Dict[str, Any] = {
-    "train_batch_size": 16,
+    "train_batch_size": 8,
     "train_lr": 2e-4,
     "train_num_steps": 50000,
     "gradient_accumulate_every": 1,
@@ -66,7 +68,7 @@ OPTIMIZATION_DEFAULTS: Dict[str, Any] = {
 RUNTIME_DEFAULTS: Dict[str, Any] = {
     "amp": True,
     "mixed_precision_type": "bf16",
-    "compile_model": False,
+    "compile_model": True,
     "split_batches": False,
     "disable_lr_scheduler": False,
     "use_cpu": False,

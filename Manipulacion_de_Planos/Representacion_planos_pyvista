@@ -1,0 +1,114 @@
+import glob
+import os
+import re
+import time
+
+import h5py
+import numpy as np
+import pyvista as pv
+
+#------ Configuración ------#
+
+
+folder = r"C:\Users\Julio\OneDrive - Universidad Politécnica de Madrid\Escritorio\Trabajo Fin de Grado\Planos Iniciales\Data for Julio"
+N_PLANES = 2  # número de planos a cargar
+
+# Umbral de intensidad:
+ENABLE_TL_THRESHOLD = True
+TL_MIN = -99.999
+POINT_SIZE = 1.0
+
+#------ Interpretar ángulo desde el nombre del archivo ------#
+
+
+angle_regex = re.compile(r"PlaneAngle([-+]?\d+(?:\.\d+)?)")
+
+def extract_angle(path):
+    return float(angle_regex.search(os.path.basename(path)).group(1))  # Extrae el ángulo desde el nombre del archivo.
+
+#------ Cargar archivos, procesar y mostrar con PyVista ------#
+
+
+files = sorted(
+    glob.glob(os.path.join(folder, "*.mat")),
+    key=extract_angle
+)[:N_PLANES]
+
+angles = [extract_angle(p) for p in files]
+use_radians = max(map(abs, angles)) <= 6.5
+
+plotter = pv.Plotter()
+t0 = time.perf_counter()
+
+#------ Representacion ------#
+
+
+with h5py.File(files[0], "r") as f:
+    X0 = np.float32(f["X"][0, 0])
+    Y0 = np.float32(f["Y"][0, 0])
+    Z0 = np.float32(f["Z"][0, 0])
+
+for path in files:
+
+    angle_raw = extract_angle(path)
+    t1 = time.perf_counter()
+
+    with h5py.File(path, "r") as f:
+        X, Y, Z, tl = (
+            np.asarray(f[k][:], np.float32)
+            for k in ("X", "Y", "Z", "tl")
+        )
+
+    # ----- Origen común -----
+    X -= X0
+    Y -= Y0
+    Z -= Z0
+
+    # ----- Filtrado -----
+    keep = np.isfinite(tl)
+    if ENABLE_TL_THRESHOLD:
+        keep &= tl >= TL_MIN
+
+    if not keep.any():
+        continue
+
+    Xk = X[keep]
+    Yk = Y[keep]
+    Zk = Z[keep]
+    tlk = tl[keep]
+
+    n_kept = Xk.size
+    n_total = X.size
+
+    # ----- Rotación -----
+    angle_rad = angle_raw if use_radians else np.deg2rad(angle_raw)
+    c = np.cos(angle_rad)
+    s = np.sin(angle_rad)
+
+    points = np.empty((n_kept, 3), dtype=np.float32)
+    points[:, 0] = Xk * c - Yk * s
+    points[:, 1] = Xk * s + Yk * c
+    points[:, 2] = Zk
+
+    cloud = pv.PolyData(points)
+    cloud["tl"] = tlk
+
+    plotter.add_mesh(
+        cloud,
+        scalars="tl",
+        cmap="jet",
+        point_size=POINT_SIZE,
+        render_points_as_spheres=False,
+    )
+
+    print(
+        "Angle =", angle_raw,
+        "Points kept =", n_kept,
+        "Percentage =", round(100 * n_kept / n_total, 2), "%",
+        "Mesh generada en", round(time.perf_counter() - t1, 2), "s"
+    )
+
+total_time = time.perf_counter() - t0
+print("Tiempo total:", round(total_time, 2), "s")
+
+plotter.show()

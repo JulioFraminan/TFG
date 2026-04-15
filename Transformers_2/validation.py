@@ -169,6 +169,10 @@ def run_validation(
     rows_per_page: int = 6,
     max_samples: int = -1,
     seed: int = 42,
+    save_mat: bool = True,
+    save_metrics_csv: bool = True,
+    save_summary_json: bool = True,
+    save_error_vs_angle: bool = True,
     print_fn=print,
 ) -> Dict:
     set_seed(seed)
@@ -223,9 +227,10 @@ def run_validation(
 
     output_root = results_folder / output_subdir
     png_folder = output_root / "PNG"
-    mat_folder = output_root / "MAT"
     png_folder.mkdir(parents=True, exist_ok=True)
-    mat_folder.mkdir(parents=True, exist_ok=True)
+    mat_folder = output_root / "MAT" if save_mat else None
+    if mat_folder is not None:
+        mat_folder.mkdir(parents=True, exist_ok=True)
 
     default_extent = _default_extent_from_metadata(metadata)
     train_h = int(metadata["train_height"])
@@ -267,8 +272,10 @@ def run_validation(
         error_map = np.abs(sample_tl - real_tl)
         metrics = _compute_error_metrics(real_tl, sample_tl)
 
-        mat_name = f"val_generado_{angle_deg:+07.2f}.mat"
-        save_mat_h5(str(mat_folder / mat_name), sample_tl, extent=extent)
+        mat_name = ""
+        if mat_folder is not None:
+            mat_name = f"val_generado_{angle_deg:+07.2f}.mat"
+            save_mat_h5(str(mat_folder / mat_name), sample_tl, extent=extent)
 
         records.append(
             {
@@ -364,34 +371,36 @@ def run_validation(
     all_mae = [float(rec["metrics"]["mae"]) for rec in records]
     all_rmse = [float(rec["metrics"]["rmse"]) for rec in records]
 
-    fig_err, ax = plt.subplots(1, 1, figsize=(9, 4.5))
-    ax.plot(all_angles, all_mae, marker="o", label="MAE [dB]")
-    ax.plot(all_angles, all_rmse, marker="s", label="RMSE [dB]")
-    ax.set_xlabel("Angle [deg]")
-    ax.set_ylabel("Error [dB]")
-    ax.set_title("Validation error vs angle")
-    ax.grid(alpha=0.3)
-    ax.legend()
-    fig_err.tight_layout()
-    fig_err.savefig(png_folder / "error_vs_angle.png", dpi=140)
-    plt.close(fig_err)
+    if save_error_vs_angle:
+        fig_err, ax = plt.subplots(1, 1, figsize=(9, 4.5))
+        ax.plot(all_angles, all_mae, marker="o", label="MAE [dB]")
+        ax.plot(all_angles, all_rmse, marker="s", label="RMSE [dB]")
+        ax.set_xlabel("Angle [deg]")
+        ax.set_ylabel("Error [dB]")
+        ax.set_title("Validation error vs angle")
+        ax.grid(alpha=0.3)
+        ax.legend()
+        fig_err.tight_layout()
+        fig_err.savefig(png_folder / "error_vs_angle.png", dpi=140)
+        plt.close(fig_err)
 
-    csv_path = output_root / "validation_metrics.csv"
-    with csv_path.open("w", newline="", encoding="utf-8") as handle:
-        writer = csv.writer(handle)
-        writer.writerow(["angle_deg", "mae", "rmse", "max_error", "mape", "mat_file"])
-        for rec in records:
-            metrics = rec["metrics"]
-            writer.writerow(
-                [
-                    f"{rec['angle_deg']:.6f}",
-                    f"{metrics['mae']:.6f}",
-                    f"{metrics['rmse']:.6f}",
-                    f"{metrics['max_error']:.6f}",
-                    "inf" if not np.isfinite(metrics["mape"]) else f"{metrics['mape']:.6f}",
-                    rec["mat_name"],
-                ]
-            )
+    csv_path = output_root / "validation_metrics.csv" if save_metrics_csv else None
+    if csv_path is not None:
+        with csv_path.open("w", newline="", encoding="utf-8") as handle:
+            writer = csv.writer(handle)
+            writer.writerow(["angle_deg", "mae", "rmse", "max_error", "mape", "mat_file"])
+            for rec in records:
+                metrics = rec["metrics"]
+                writer.writerow(
+                    [
+                        f"{rec['angle_deg']:.6f}",
+                        f"{metrics['mae']:.6f}",
+                        f"{metrics['rmse']:.6f}",
+                        f"{metrics['max_error']:.6f}",
+                        "inf" if not np.isfinite(metrics["mape"]) else f"{metrics['mape']:.6f}",
+                        rec["mat_name"],
+                    ]
+                )
 
     finite_mapes = [float(rec["metrics"]["mape"]) for rec in records if np.isfinite(rec["metrics"]["mape"])]
 
@@ -405,8 +414,8 @@ def run_validation(
         "mean_rmse": _json_number(_safe_mean(all_rmse)),
         "mean_mape": _json_number(_safe_mean(finite_mapes)),
         "output_png": str(png_folder),
-        "output_mat": str(mat_folder),
-        "metrics_csv": str(csv_path),
+        "output_mat": str(mat_folder) if mat_folder is not None else None,
+        "metrics_csv": str(csv_path) if csv_path is not None else None,
         "axis_units": "m",
         "sampler": sampler,
         "cond_scale": float(cond_scale),
@@ -414,15 +423,17 @@ def run_validation(
         "angles": all_angles,
     }
 
-    with (output_root / "validation_summary.json").open("w", encoding="utf-8") as handle:
-        json.dump(summary, handle, indent=2)
+    if save_summary_json:
+        with (output_root / "validation_summary.json").open("w", encoding="utf-8") as handle:
+            json.dump(summary, handle, indent=2)
 
     print_fn("=" * 72)
     print_fn(f"Validation samples: {len(records)}")
     print_fn(f"Mean MAE: {summary['mean_mae']}")
     print_fn(f"Mean RMSE: {summary['mean_rmse']}")
     print_fn(f"PNG outputs: {png_folder}")
-    print_fn(f"MAT outputs: {mat_folder}")
+    if mat_folder is not None:
+        print_fn(f"MAT outputs: {mat_folder}")
     print_fn("=" * 72)
 
     return summary

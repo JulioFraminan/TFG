@@ -927,7 +927,8 @@ class Trainer:
         save_best_and_latest_only = False,
         use_cpu=False,
         use_lr_scheduler=True,
-        compile_model=False
+        compile_model=False,
+        on_milestone=None
     ):
         super().__init__()
 
@@ -1025,6 +1026,7 @@ class Trainer:
 
         self.save_best_and_latest_only = save_best_and_latest_only
         self.all_losses = []
+        self.on_milestone = on_milestone
 
     @property
     def device(self):
@@ -1150,6 +1152,12 @@ class Trainer:
                         # whether to calculate fid
                         milestone = self.step // self.save_and_sample_every
                         self.save(milestone)
+                        if callable(self.on_milestone):
+                            checkpoint_path = self.checkpoint_folder / f'model-{milestone}.pt'
+                            try:
+                                self.on_milestone(milestone, checkpoint_path)
+                            except Exception as error:
+                                accelerator.print(f"[milestone][WARN] milestone callback failed at {milestone}: {error}")
                         self.save_loss_plot()
                 
         if accelerator.is_main_process:

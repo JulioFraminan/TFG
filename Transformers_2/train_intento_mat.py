@@ -131,6 +131,24 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--validation-num-inference-steps", type=int, default=-1)
     parser.add_argument("--validation-rows-per-page", type=int, default=6)
     parser.add_argument("--validation-max-samples", type=int, default=-1)
+    parser.add_argument(
+        "--milestone-validation-png",
+        dest="milestone_validation_png",
+        action="store_true",
+        help="Generate validation_real_vs_gen PNG pages at each training milestone.",
+    )
+    parser.add_argument(
+        "--no-milestone-validation-png",
+        dest="milestone_validation_png",
+        action="store_false",
+        help="Disable milestone validation PNG generation.",
+    )
+    parser.add_argument(
+        "--milestone-validation-subdir",
+        type=str,
+        default="validation_milestones",
+        help="Subdirectory inside results folder for milestone validation PNGs.",
+    )
 
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--results-folder", type=str, default="results/intento_mat/dit_gaussian")
@@ -154,6 +172,7 @@ def parse_args() -> argparse.Namespace:
         help="Disable automatic resume even if compatible checkpoints exist.",
     )
 
+    parser.set_defaults(milestone_validation_png=True)
     parser.set_defaults(**defaults)
 
     return parser.parse_args()
@@ -414,6 +433,8 @@ _CONFIG_SIGNATURE_EXCLUDED_KEYS = {
     "validation_num_inference_steps",
     "validation_rows_per_page",
     "validation_max_samples",
+    "milestone_validation_png",
+    "milestone_validation_subdir",
 }
 
 
@@ -441,6 +462,145 @@ def _build_config_signature(args: argparse.Namespace) -> str:
     return hashlib.sha1(payload_json.encode("utf-8")).hexdigest()[:12]
 
 
+_CONFIG_RUN_INDEX_FILENAME = "_config_run_index.json"
+
+
+def _slugify_name_component(value: str, max_len: int = 24) -> str:
+    lowered = value.lower()
+    out_chars: list[str] = []
+    prev_dash = False
+
+    for char in lowered:
+        if char.isalnum():
+            out_chars.append(char)
+            prev_dash = False
+        else:
+            if not prev_dash:
+                out_chars.append("-")
+                prev_dash = True
+
+    slug = "".join(out_chars).strip("-")
+    if not slug:
+        slug = "na"
+
+    trimmed = slug[:max_len].strip("-")
+    return trimmed if trimmed else "na"
+
+
+def _format_lr_tag(train_lr: float) -> str:
+    text = f"{float(train_lr):.0e}"
+    if "e" in text:
+        mantissa, exp = text.split("e", 1)
+        try:
+            text = f"{mantissa}e{int(exp)}"
+        except ValueError:
+            pass
+    return _slugify_name_component(text, max_len=12)
+
+
+def _build_readable_run_name(args: argparse.Namespace, run_id: int) -> str:
+    res_tag = f"{int(args.train_height)}x{int(args.train_width)}"
+    batch_tag = f"b{int(args.train_batch_size)}x{int(args.gradient_accumulate_every)}"
+    algo_tag = _slugify_name_component(str(args.algorithm), max_len=10)
+
+    if args.model_type == "dit":
+        variant = _slugify_name_component(str(args.dit_variant).replace("/", "p"), max_len=18)
+        attn = _slugify_name_component(str(args.dit_attn_type), max_len=10)
+        model_tag = f"dit-{variant}-{attn}"
+    else:
+        model_tag = f"unet-d{int(args.unet_dim)}"
+
+    lr_tag = f"lr{_format_lr_tag(float(args.train_lr))}"
+    return f"run_{run_id:04d}_{model_tag}_{res_tag}_{algo_tag}_{batch_tag}_{lr_tag}"
+
+
+def _discover_max_existing_run_id(base_folder: Path) -> int:
+    max_run_id = 0
+    if not base_folder.exists():
+        return max_run_id
+
+    for child in base_folder.iterdir():
+        if not child.is_dir():
+            continue
+
+        parts = child.name.split("_", 2)
+        if len(parts) < 2 or parts[0] != "run" or not parts[1].isdigit():
+            continue
+
+        max_run_id = max(max_run_id, int(parts[1]))
+
+    return max_run_id
+
+
+def _load_config_run_index(index_path: Path, base_folder: Path) -> Dict[str, Any]:
+    existing_max = _discover_max_existing_run_id(base_folder)
+    baseline_next_id = existing_max + 1 if existing_max > 0 else 1
+    default_index: Dict[str, Any] = {
+        "version": 1,
+        "next_id": baseline_next_id,
+        "by_signature": {},
+    }
+
+    if not index_path.exists():
+        return default_index
+
+    try:
+        with index_path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+
+        if not isinstance(data, dict):
+            return default_index
+
+        by_signature = data.get("by_signature", {})
+        if not isinstance(by_signature, dict):
+            by_signature = {}
+
+        next_id = data.get("next_id", baseline_next_id)
+        if not isinstance(next_id, int) or next_id <= 0:
+            next_id = baseline_next_id
+
+        next_id = max(next_id, baseline_next_id)
+
+        return {
+            "version": 1,
+            "next_id": next_id,
+            "by_signature": by_signature,
+        }
+    except Exception:
+        return default_index
+
+
+def _save_config_run_index(index_path: Path, index_data: Dict[str, Any]) -> None:
+    with index_path.open("w", encoding="utf-8") as handle:
+        json.dump(index_data, handle, indent=2, sort_keys=True)
+
+
+def _resolve_readable_config_run_folder(base_folder: Path, args: argparse.Namespace, signature: str) -> Path:
+    base_folder.mkdir(parents=True, exist_ok=True)
+
+    index_path = base_folder / _CONFIG_RUN_INDEX_FILENAME
+    index_data = _load_config_run_index(index_path, base_folder)
+    by_signature = index_data.setdefault("by_signature", {})
+
+    mapped_name = by_signature.get(signature)
+    if isinstance(mapped_name, str) and mapped_name.strip():
+        return base_folder / mapped_name
+
+    run_id = int(index_data.get("next_id", 1))
+    while True:
+        run_name = _build_readable_run_name(args, run_id)
+        candidate = base_folder / run_name
+        if not candidate.exists():
+            break
+        run_id += 1
+
+    by_signature[signature] = run_name
+    index_data["next_id"] = run_id + 1
+    _save_config_run_index(index_path, index_data)
+
+    return base_folder / run_name
+
+
 def _resolve_results_folder(args: argparse.Namespace) -> tuple[Path, Path, Optional[str]]:
     base_folder = (PROJECT_DIR / args.results_folder).resolve() if not os.path.isabs(args.results_folder) else Path(args.results_folder)
 
@@ -448,7 +608,7 @@ def _resolve_results_folder(args: argparse.Namespace) -> tuple[Path, Path, Optio
         return base_folder, base_folder, None
 
     signature = _build_config_signature(args)
-    resolved_folder = base_folder / f"cfg_{signature}"
+    resolved_folder = _resolve_readable_config_run_folder(base_folder, args, signature)
     return base_folder, resolved_folder, signature
 
 
@@ -640,6 +800,8 @@ def main() -> None:
 
     _apply_quality_profile(args)
 
+    requested_angles = parse_angle_list(args.validation_angles) if args.validation_angles.strip() else []
+
     # Keep signature and final model config aligned when auto patch-size adjustment is enabled.
     _maybe_auto_adjust_dit_variant(args, train_h=args.train_height, train_w=args.train_width)
 
@@ -727,6 +889,42 @@ def main() -> None:
     params = sum(param.numel() for param in model.parameters())
     print(f"Model parameters: {params:,}")
 
+    metadata_for_validation = _build_metadata(args, stats, train_bundle, val_bundle)
+
+    milestone_validation_callback = None
+    if args.milestone_validation_png:
+        if val_bundle.rois.size == 0:
+            print("[milestone-validation] Skipped milestone PNG validation: no validation .mat files found")
+        else:
+            from validation import run_validation
+
+            def _run_milestone_validation_png(milestone: int, checkpoint_path: Path) -> None:
+                output_subdir = f"{args.milestone_validation_subdir}/m{milestone:04d}"
+                print("=" * 72)
+                print(f"Running milestone PNG validation (milestone {milestone})")
+                print("=" * 72)
+                run_validation(
+                    results_folder=results_folder,
+                    metadata=metadata_for_validation,
+                    checkpoint_path=checkpoint_path,
+                    prefer_ema=True,
+                    validation_folder_override=args.validation_folder,
+                    requested_angles=requested_angles,
+                    output_subdir=output_subdir,
+                    cond_scale=args.validation_cond_scale,
+                    sampler=args.validation_sampler,
+                    num_inference_steps=args.validation_num_inference_steps,
+                    rows_per_page=args.validation_rows_per_page,
+                    max_samples=args.validation_max_samples,
+                    seed=args.seed,
+                    save_mat=False,
+                    save_metrics_csv=False,
+                    save_summary_json=False,
+                    save_error_vs_angle=False,
+                )
+
+            milestone_validation_callback = _run_milestone_validation_png
+
     trainer = Trainer(
         diffusion,
         dataset=train_dataset,
@@ -747,6 +945,7 @@ def main() -> None:
         use_cpu=args.use_cpu,
         use_lr_scheduler=not args.disable_lr_scheduler,
         compile_model=args.compile_model,
+        on_milestone=milestone_validation_callback,
         checkpoint_subdir=CHECKPOINT_SUBDIR,
         sample_subdir=COLORED_GRIDS_SUBDIR,
     )
@@ -771,7 +970,7 @@ def main() -> None:
                     "Training will start from scratch."
                 )
 
-    metadata = _build_metadata(args, stats, train_bundle, val_bundle)
+    metadata = dict(metadata_for_validation)
     metadata["results_layout"] = args.results_layout
     metadata["results_base_folder"] = str(base_results_folder)
     metadata["resolved_results_folder"] = str(results_folder)
@@ -808,8 +1007,6 @@ def main() -> None:
     except FileNotFoundError as error:
         print(f"Validation skipped: {error}")
         return
-
-    requested_angles = parse_angle_list(args.validation_angles) if args.validation_angles.strip() else []
 
     from validation import run_validation
 
