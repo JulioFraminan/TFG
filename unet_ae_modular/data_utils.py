@@ -441,22 +441,70 @@ def augment(data, angles):
 #  UTILIDADES DE E/S (.mat HDF5)
 # ══════════════════════════════════════════════════════════════════════
 
-def create_xyz_grid(shape):
-    """Crea grids X, Y, Z basados en los índices de píxel."""
+def create_xyz_grid(shape, x_range=None, z_range=None):
+    """Crea grids X/R, Y, Z con la misma convencion que los .mat originales.
+
+    Convencion raw (sin transponer):
+      - eje 0 (filas)    -> X/R
+      - eje 1 (columnas) -> Z
+
+    Parameters
+    ----------
+    shape : tuple[int, int]
+        Shape de la matriz tl a guardar (raw, antes de cargar con .T).
+    x_range, z_range : tuple[float, float] | None
+        Rango fisico [min, max] para X/R y Z. Si es None, usa indices de pixel.
+    """
     rows, cols = shape
-    xi = np.arange(cols, dtype=np.float64)
-    zi = np.arange(rows, dtype=np.float64)
-    X, Z = np.meshgrid(xi, zi)
+
+    if x_range is None:
+        x_axis = np.arange(rows, dtype=np.float64)
+    else:
+        x_axis = np.linspace(float(x_range[0]), float(x_range[1]), rows, dtype=np.float64)
+
+    if z_range is None:
+        z_axis = np.arange(cols, dtype=np.float64)
+    else:
+        z_axis = np.linspace(float(z_range[0]), float(z_range[1]), cols, dtype=np.float64)
+
+    # X/R debe variar por filas y Z por columnas (igual que en los .mat de entrada).
+    X = np.repeat(x_axis[:, np.newaxis], cols, axis=1)
+    Z = np.repeat(z_axis[np.newaxis, :], rows, axis=0)
     Y = np.zeros_like(X)
     return X, Y, Z
 
 
-def save_mat(path, tl_array):
-    """Guarda un .mat HDF5 con X, Y, Z y tl."""
-    tl_save = tl_array.T  # Transponer de vuelta para compatibilidad MATLAB
-    X, Y, Z = create_xyz_grid(tl_save.shape)
+def save_mat(path, tl_array, extent=None):
+    """Guarda un .mat HDF5 con ejes coherentes con la convencion original.
+
+    tl_array entra en convencion interna (filas=Z, cols=X) y se transpone al
+    formato raw (filas=X/R, cols=Z) para exportar.
+
+    Parameters
+    ----------
+    path : str
+        Ruta de salida.
+    tl_array : np.ndarray
+        Plano TL en convencion interna (Z, X).
+    extent : list[float] | tuple[float, float, float, float] | None
+        [x_left, x_right, z_bottom, z_top]. Si se pasa, guarda ejes fisicos.
+        Si es None, guarda ejes en indices de pixel.
+    """
+    tl_save = tl_array.T
+
+    if extent is not None:
+        x_left, x_right, z_bottom, z_top = [float(v) for v in extent]
+        X, Y, Z = create_xyz_grid(
+            tl_save.shape,
+            x_range=(x_left, x_right),
+            z_range=(z_bottom, z_top),
+        )
+    else:
+        X, Y, Z = create_xyz_grid(tl_save.shape)
+
     with h5py.File(path, "w") as f:
         f.create_dataset("X", data=X)
+        f.create_dataset("R", data=X)
         f.create_dataset("Y", data=Y)
         f.create_dataset("Z", data=Z)
         f.create_dataset("tl", data=tl_save)
