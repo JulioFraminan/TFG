@@ -171,7 +171,7 @@ def main():
     for j in range(len(rois_norm)):
         roi_tl = norm.denormalize_tl(rois_norm[j])
         roi_mat_path = os.path.join(TRAIN_MAT_FOLDER, f"roi_original_{roi_angles[j]:+.2f}.mat")
-        save_mat(roi_mat_path, roi_tl)
+        save_mat(roi_mat_path, roi_tl, extent=roi_extents[j])
     print(f"  {len(rois_norm)} ROIs exportadas en {TRAIN_MAT_FOLDER}")
 
     # ══════════════════════════════════════════════════════════════════════
@@ -374,7 +374,7 @@ def main():
                         VALIDATION_MAT_FOLDER,
                         f"val_generado_{val_angle:+.2f}.mat",
                     )
-                    save_mat(mat_path, gen_tl)
+                    save_mat(mat_path, gen_tl, extent=ext)
 
                     # --- Texto de vecinos para titulo (claro y legible) ---
                     neigh_parts = []

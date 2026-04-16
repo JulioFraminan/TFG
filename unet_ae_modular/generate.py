@@ -59,8 +59,9 @@ def main():
             mae_val = np.mean(error_tl)
             max_err = np.max(error_tl)
 
+            ext = roi_extents[idx]   # extension fisica de la semilla
             mat_path = os.path.join(GENERATE_MAT_FOLDER, f"plano_angulo_{target_angle:+.1f}.mat")
-            save_mat(mat_path, gen_tl)
+            save_mat(mat_path, gen_tl, extent=ext)
 
             # Reconstrucción de la semilla (sin ruido)
             cond_seed = torch.tensor(
@@ -79,7 +80,6 @@ def main():
             max_recon = np.max(error_recon)
 
             # --- Figura con 6 subplots ---
-            ext = roi_extents[idx]   # extension fisica de la semilla
             fig, axes = plt.subplots(
                 1, 6,
                 figsize=adaptive_figsize(gen_tl.shape[0], gen_tl.shape[1], 1, 6),
