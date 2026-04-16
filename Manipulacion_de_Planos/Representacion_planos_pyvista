@@ -2,19 +2,25 @@ import glob
 import os
 import re
 import time
+import shutil
 
 import h5py
 import numpy as np
 import pyvista as pv
 
+#------ Limpieza de caché al inicio ------#
+cache_dir = os.path.join(os.path.dirname(__file__), "__pycache__")
+if os.path.exists(cache_dir):
+    shutil.rmtree(cache_dir)
+
 #------ Configuración ------#
 
 
-folder = r"C:\Users\Julio\OneDrive - Universidad Politécnica de Madrid\Escritorio\Trabajo Fin de Grado\Planos Iniciales\Data for Julio"
-N_PLANES = 2  # número de planos a cargar
+folder = r"/home/julio/Desktop/Intento con validación mezclada/TFG/unet_ae_modular/input/Val/"
+N_PLANES = 3  # número de planos a cargar (cargará los N más recientes)
 
 # Umbral de intensidad:
-ENABLE_TL_THRESHOLD = True
+ENABLE_TL_THRESHOLD = False
 TL_MIN = -99.999
 POINT_SIZE = 1.0
 
@@ -22,17 +28,36 @@ POINT_SIZE = 1.0
 
 
 angle_regex = re.compile(r"PlaneAngle([-+]?\d+(?:\.\d+)?)")
+fallback_number_regex = re.compile(r"([-+]?\d+(?:\.\d+)?)")
 
 def extract_angle(path):
-    return float(angle_regex.search(os.path.basename(path)).group(1))  # Extrae el ángulo desde el nombre del archivo.
+    filename = os.path.basename(path)
+
+    # Caso original: archivos tipo PlaneAngleXX...
+    match = angle_regex.search(filename)
+    if match is not None:
+        return float(match.group(1))
+
+    # Fallback: cualquier número en el nombre (ej. val_generado_+31.46.mat)
+    match = fallback_number_regex.search(filename)
+    if match is not None:
+        return float(match.group(1))
+
+    # Si no hay número, no rotar.
+    return 0.0
 
 #------ Cargar archivos, procesar y mostrar con PyVista ------#
 
 
-files = sorted(
-    glob.glob(os.path.join(folder, "*.mat")),
-    key=extract_angle
-)[:N_PLANES]
+all_files = glob.glob(os.path.join(folder, "*.[mM][aA][tT]"))
+# Ordenar por timestamp (más recientes primero), luego por ángulo
+all_files_with_time = [(f, os.path.getmtime(f)) for f in all_files]
+all_files_with_time.sort(key=lambda x: (-x[1], extract_angle(x[0])))
+files = [f[0] for f in all_files_with_time[:N_PLANES]]
+files = sorted(files, key=extract_angle)  # Re-ordenar por ángulo para visualización
+
+if len(files) == 0:
+    raise FileNotFoundError(f"No se encontraron archivos .mat en: {folder}")
 
 angles = [extract_angle(p) for p in files]
 use_radians = max(map(abs, angles)) <= 6.5
@@ -80,15 +105,18 @@ for path in files:
     n_kept = Xk.size
     n_total = X.size
 
-    # ----- Rotación -----
+    # ----- Conversión cilíndrico -> cartesiano -----
+    # X es el radio (r), Z es altura (z), ángulo viene del archivo
     angle_rad = angle_raw if use_radians else np.deg2rad(angle_raw)
-    c = np.cos(angle_rad)
-    s = np.sin(angle_rad)
+
+    r = Xk  # Radio
+    theta = angle_rad
+    z = Zk  # Altura (eje común)
 
     points = np.empty((n_kept, 3), dtype=np.float32)
-    points[:, 0] = Xk * c - Yk * s
-    points[:, 1] = Xk * s + Yk * c
-    points[:, 2] = Zk
+    points[:, 0] = r * np.cos(theta) 
+    points[:, 1] = r * np.sin(theta) 
+    points[:, 2] = z  # Z es el eje común
 
     cloud = pv.PolyData(points)
     cloud["tl"] = tlk
