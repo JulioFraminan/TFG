@@ -17,7 +17,16 @@ if os.path.exists(cache_dir):
 
 
 folder = r"/home/julio/Desktop/Intento con validación mezclada/TFG/unet_ae_modular/input/Val/"
-N_PLANES = 3  # número de planos a cargar (cargará los N más recientes)
+N_PLANES = None  # Pon None para cargar TODOS los archivos de la carpeta, o un número en específico
+
+# Configuración de exportación y visualización
+SHOW_PYVISTA = False  # True: muestra ventana 3D, False: procesa pero no renderiza
+EXPORT_VTS = True    # True: exporta a un grid estructurado .vts
+VTS_OUTPUT_PATH = os.path.join(folder, "planos_rotados.vts")
+
+# MUY IMPORTANTE: Dimensiones de cada plano SIN filtrar. (p. ej. Nx, Ny)
+# El tamaño total del array original en el .mat debe ser igual a NX * NY
+PLANE_GRID_SHAPE = (700, 2000) 
 
 # Umbral de intensidad:
 ENABLE_TL_THRESHOLD = False
@@ -53,8 +62,14 @@ all_files = glob.glob(os.path.join(folder, "*.[mM][aA][tT]"))
 # Ordenar por timestamp (más recientes primero), luego por ángulo
 all_files_with_time = [(f, os.path.getmtime(f)) for f in all_files]
 all_files_with_time.sort(key=lambda x: (-x[1], extract_angle(x[0])))
-files = [f[0] for f in all_files_with_time[:N_PLANES]]
-files = sorted(files, key=extract_angle)  # Re-ordenar por ángulo para visualización
+
+# Si N_PLANES es None, carga todos; si no, toma los N más recientes
+if N_PLANES is not None:
+    files = [f[0] for f in all_files_with_time[:N_PLANES]]
+else:
+    files = [f[0] for f in all_files_with_time]
+
+files = sorted(files, key=extract_angle)  # Re-ordenar por ángulo SIEMPRE para que el 3D no se tuerza
 
 if len(files) == 0:
     raise FileNotFoundError(f"No se encontraron archivos .mat en: {folder}")
@@ -62,8 +77,12 @@ if len(files) == 0:
 angles = [extract_angle(p) for p in files]
 use_radians = max(map(abs, angles)) <= 6.5
 
-plotter = pv.Plotter()
+plotter = pv.Plotter() if SHOW_PYVISTA else None
 t0 = time.perf_counter()
+
+# Listas para el Structured Grid (exportación completa sin filtrar)
+vts_points_list = []
+vts_tl_list = []
 
 #------ Representacion ------#
 
@@ -89,7 +108,19 @@ for path in files:
     Y -= Y0
     Z -= Z0
 
-    # ----- Filtrado -----
+    # ----- Guardar datos de CADA PLANO sin filtrar para Malla Estructurada (.vts) -----
+    angle_rad = angle_raw if use_radians else np.deg2rad(angle_raw)
+    
+    # Todos los puntos mapeados a coordenadas cartesianas (x,y,z)
+    points_full = np.empty((X.size, 3), dtype=np.float32)
+    points_full[:, 0] = X.ravel() * np.cos(angle_rad)
+    points_full[:, 1] = X.ravel() * np.sin(angle_rad)
+    points_full[:, 2] = Z.ravel()
+    
+    vts_points_list.append(points_full)
+    vts_tl_list.append(tl.ravel())
+
+    # ----- Filtrado (solo para PyVista Plotter local) -----
     keep = np.isfinite(tl)
     if ENABLE_TL_THRESHOLD:
         keep &= tl >= TL_MIN
@@ -121,22 +152,51 @@ for path in files:
     cloud = pv.PolyData(points)
     cloud["tl"] = tlk
 
-    plotter.add_mesh(
-        cloud,
-        scalars="tl",
-        cmap="jet",
-        point_size=POINT_SIZE,
-        render_points_as_spheres=False,
-    )
+    if SHOW_PYVISTA:
+        plotter.add_mesh(
+            cloud,
+            scalars="tl",
+            cmap="jet",
+            point_size=POINT_SIZE,
+            render_points_as_spheres=False,
+        )
 
     print(
         "Angle =", angle_raw,
         "Points kept =", n_kept,
         "Percentage =", round(100 * n_kept / n_total, 2), "%",
-        "Mesh generada en", round(time.perf_counter() - t1, 2), "s"
+        "Mesh generada local en", round(time.perf_counter() - t1, 2), "s"
     )
 
-total_time = time.perf_counter() - t0
-print("Tiempo total:", round(total_time, 2), "s")
+# --- EXPORTACIÓN A STRUCTURED GRID (.vts) ---
+if EXPORT_VTS and len(vts_points_list) > 0:
+    print("\nGenerando malla estructurada (.vts) para ParaView...")
+    all_points_vts = np.vstack(vts_points_list).astype(np.float32, copy=False)
+    all_tl_vts = np.concatenate(vts_tl_list).astype(np.float32, copy=False)
 
-plotter.show()
+    nx, ny = PLANE_GRID_SHAPE
+    nz = len(vts_points_list)
+    
+    expected_points = nx * ny * nz
+    if all_points_vts.shape[0] != expected_points:
+        print(f"⚠️ ERROR AL EXPORTAR: N_Puntos cargados ({all_points_vts.shape[0]}) "
+              f"≠ Nx*Ny*Nz Esperados ({expected_points}).\n"
+              "Revisa la variable PLANE_GRID_SHAPE.")
+    else:
+        grid = pv.StructuredGrid()
+        grid.points = all_points_vts
+        grid.dimensions = (nx, ny, nz)
+        grid["tl"] = all_tl_vts
+        
+        output_dir = os.path.dirname(VTS_OUTPUT_PATH)
+        if output_dir:
+            os.makedirs(output_dir, exist_ok=True)
+            
+        grid.save(VTS_OUTPUT_PATH)
+        print(f"✅ VTS exportado a: {VTS_OUTPUT_PATH} con dimensions ({nx}, {ny}, {nz})")
+
+total_time = time.perf_counter() - t0
+print("\nTiempo total:", round(total_time, 2), "s")
+
+if SHOW_PYVISTA:
+    plotter.show()
