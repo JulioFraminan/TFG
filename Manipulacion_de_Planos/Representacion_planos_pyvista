@@ -16,7 +16,7 @@ if os.path.exists(cache_dir):
 #------ Configuración ------#
 
 
-folder = r"/home/julio/Desktop/Intento con validación mezclada/TFG/unet_ae_modular/input/Val/"
+folder = r"/home/j.framinan/TFG_repo/unet_ae_modular/output/generate/MAT"
 N_PLANES = None  # Pon None para cargar TODOS los archivos de la carpeta, o un número en específico
 
 # Configuración de exportación y visualización
