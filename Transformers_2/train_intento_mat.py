@@ -903,7 +903,7 @@ def main() -> None:
                 print("=" * 72)
                 print(f"Running milestone PNG validation (milestone {milestone})")
                 print("=" * 72)
-                run_validation(
+                summary = run_validation(
                     results_folder=results_folder,
                     metadata=metadata_for_validation,
                     checkpoint_path=checkpoint_path,
@@ -922,6 +922,13 @@ def main() -> None:
                     save_summary_json=False,
                     save_error_vs_angle=False,
                 )
+                if summary.get("status") == "ok":
+                    print(
+                        "[milestone-validation] Mean errors "
+                        f"MAE={summary.get('mean_mae')} | "
+                        f"RMSE={summary.get('mean_rmse')} | "
+                        f"MAX={summary.get('mean_max_error')}"
+                    )
 
             milestone_validation_callback = _run_milestone_validation_png
 

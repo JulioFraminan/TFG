@@ -80,9 +80,15 @@ use_radians = max(map(abs, angles)) <= 6.5
 plotter = pv.Plotter() if SHOW_PYVISTA else None
 t0 = time.perf_counter()
 
-# Listas para el Structured Grid (exportación completa sin filtrar)
-vts_points_list = []
-vts_tl_list = []
+# Buffers para Structured Grid (exportación completa sin filtrar)
+nx, ny = PLANE_GRID_SHAPE
+if EXPORT_VTS:
+    nz = len(files)
+    points_3d = np.empty((nx, ny, nz, 3), dtype=np.float32)
+    tl_3d = np.empty((nx, ny, nz), dtype=np.float32)
+else:
+    points_3d = None
+    tl_3d = None
 
 #------ Representacion ------#
 
@@ -92,7 +98,7 @@ with h5py.File(files[0], "r") as f:
     Y0 = np.float32(f["Y"][0, 0])
     Z0 = np.float32(f["Z"][0, 0])
 
-for path in files:
+for i, path in enumerate(files):
 
     angle_raw = extract_angle(path)
     t1 = time.perf_counter()
@@ -109,16 +115,25 @@ for path in files:
     Z -= Z0
 
     # ----- Guardar datos de CADA PLANO sin filtrar para Malla Estructurada (.vts) -----
-    angle_rad = angle_raw if use_radians else np.deg2rad(angle_raw)
-    
-    # Todos los puntos mapeados a coordenadas cartesianas (x,y,z)
-    points_full = np.empty((X.size, 3), dtype=np.float32)
-    points_full[:, 0] = X.ravel() * np.cos(angle_rad)
-    points_full[:, 1] = X.ravel() * np.sin(angle_rad)
-    points_full[:, 2] = Z.ravel()
-    
-    vts_points_list.append(points_full)
-    vts_tl_list.append(tl.ravel())
+    if EXPORT_VTS:
+        if X.shape != (nx, ny):
+            if X.shape == (ny, nx):
+                # Corrige archivos transpuestos sin romper el resto del flujo.
+                X = X.T
+                Y = Y.T
+                Z = Z.T
+                tl = tl.T
+            else:
+                raise ValueError(
+                    f"Shape inválido en {os.path.basename(path)}: {X.shape}. "
+                    f"Esperado {(nx, ny)} según PLANE_GRID_SHAPE."
+                )
+
+        angle_rad = angle_raw if use_radians else np.deg2rad(angle_raw)
+        points_3d[:, :, i, 0] = X * np.cos(angle_rad)
+        points_3d[:, :, i, 1] = X * np.sin(angle_rad)
+        points_3d[:, :, i, 2] = Z
+        tl_3d[:, :, i] = tl
 
     # ----- Filtrado (solo para PyVista Plotter local) -----
     keep = np.isfinite(tl)
@@ -169,13 +184,12 @@ for path in files:
     )
 
 # --- EXPORTACIÓN A STRUCTURED GRID (.vts) ---
-if EXPORT_VTS and len(vts_points_list) > 0:
+if EXPORT_VTS and points_3d is not None and points_3d.shape[2] > 0:
     print("\nGenerando malla estructurada (.vts) para ParaView...")
-    all_points_vts = np.vstack(vts_points_list).astype(np.float32, copy=False)
-    all_tl_vts = np.concatenate(vts_tl_list).astype(np.float32, copy=False)
+    all_points_vts = points_3d.reshape(-1, 3, order="F")
+    all_tl_vts = tl_3d.reshape(-1, order="F")
 
-    nx, ny = PLANE_GRID_SHAPE
-    nz = len(vts_points_list)
+    nz = points_3d.shape[2]
     
     expected_points = nx * ny * nz
     if all_points_vts.shape[0] != expected_points:

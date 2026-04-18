@@ -355,7 +355,7 @@ def run_validation(
             axes[row, 2].set_title(
                 "|Error| "
                 f"MAE={metrics['mae']:.3f} "
-                f"RMSE={metrics['rmse']:.3f} "
+                f"MAX={metrics['max_error']:.3f} "
                 f"MAPE={mape_text}"
             )
             axes[row, 2].set_xlabel("X [m]")
@@ -370,11 +370,12 @@ def run_validation(
     all_angles = [float(rec["angle_deg"]) for rec in records]
     all_mae = [float(rec["metrics"]["mae"]) for rec in records]
     all_rmse = [float(rec["metrics"]["rmse"]) for rec in records]
+    all_max_error = [float(rec["metrics"]["max_error"]) for rec in records]
 
     if save_error_vs_angle:
         fig_err, ax = plt.subplots(1, 1, figsize=(9, 4.5))
         ax.plot(all_angles, all_mae, marker="o", label="MAE [dB]")
-        ax.plot(all_angles, all_rmse, marker="s", label="RMSE [dB]")
+        ax.plot(all_angles, all_max_error, marker="s", label="Max Error [dB]")
         ax.set_xlabel("Angle [deg]")
         ax.set_ylabel("Error [dB]")
         ax.set_title("Validation error vs angle")
@@ -412,6 +413,7 @@ def run_validation(
         "num_samples": len(records),
         "mean_mae": _json_number(_safe_mean(all_mae)),
         "mean_rmse": _json_number(_safe_mean(all_rmse)),
+        "mean_max_error": _json_number(_safe_mean(all_max_error)),
         "mean_mape": _json_number(_safe_mean(finite_mapes)),
         "output_png": str(png_folder),
         "output_mat": str(mat_folder) if mat_folder is not None else None,
@@ -431,6 +433,7 @@ def run_validation(
     print_fn(f"Validation samples: {len(records)}")
     print_fn(f"Mean MAE: {summary['mean_mae']}")
     print_fn(f"Mean RMSE: {summary['mean_rmse']}")
+    print_fn(f"Mean Max Error: {summary['mean_max_error']}")
     print_fn(f"PNG outputs: {png_folder}")
     if mat_folder is not None:
         print_fn(f"MAT outputs: {mat_folder}")
