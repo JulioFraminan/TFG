@@ -1,0 +1,6 @@
+ERROR conda.cli.main_run:execute(41): `conda run python -u /home/j.framinan/TFG_repo/Intento_Transformers/train.py` failed. (See above for error)
+Traceback (most recent call last):
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/train.py", line 18, in <module>
+    from torch.utils.data import DataLoader, TensorDataset
+ImportError: cannot import name 'DataLoader' from 'torch.utils.data' (unknown location)
+

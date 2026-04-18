@@ -1,0 +1,5 @@
+Failed to parse CPUID
+/home/j.framinan/Intento_Transformers/model.py:119: UserWarning: 1Torch was not compiled with flash attention. (Triggered internally at ../aten/src/ATen/native/transformers/hip/sdp_utils.cpp:264.)
+  attn_out = F.scaled_dot_product_attention(q, k, v, dropout_p=0.0, is_causal=False)
+/home/j.framinan/Intento_Transformers/model.py:119: UserWarning: 1Torch was not compiled with memory efficient attention. (Triggered internally at ../aten/src/ATen/native/transformers/hip/sdp_utils.cpp:320.)
+  attn_out = F.scaled_dot_product_attention(q, k, v, dropout_p=0.0, is_causal=False)

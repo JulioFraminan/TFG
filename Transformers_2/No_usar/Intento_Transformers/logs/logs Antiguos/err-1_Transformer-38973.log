@@ -1,0 +1,13 @@
+Failed to parse CPUID
+/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py:1150: UserWarning: expandable_segments not supported on this platform (Triggered internally at ../c10/hip/HIPAllocatorConfig.h:31.)
+  return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+Traceback (most recent call last):
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/train.py", line 489, in <module>
+    main()
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/train.py", line 383, in main
+    gen_tl, _ = generate_samples_ddim(
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/generate.py", line 111, in generate_samples_ddim
+    x_0 = codec.decode(z_0, output_shape=output_shape)
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/model.py", line 296, in decode
+    x = 0.95 * x + 0.05 * x_blur
+RuntimeError: The size of tensor a (2000) must match the size of tensor b (2002) at non-singleton dimension 3

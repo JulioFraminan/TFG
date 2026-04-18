@@ -1,0 +1,14 @@
+Traceback (most recent call last):
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/train.py", line 18, in <module>
+    from diffusers.models import AutoencoderKL
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/diffusers/__init__.py", line 5, in <module>
+    from .utils import (
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/diffusers/utils/__init__.py", line 132, in <module>
+    from .peft_utils import (
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/diffusers/utils/peft_utils.py", line 26, in <module>
+    from .torch_utils import empty_device_cache
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/diffusers/utils/torch_utils.py", line 34, in <module>
+    "xpu": torch.xpu.empty_cache,
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/__init__.py", line 1938, in __getattr__
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+AttributeError: module 'torch' has no attribute 'xpu'

@@ -1,0 +1,134 @@
+Starting job
+mié 08 abr 2026 14:59:26 CEST
+Dispositivo: cuda
+  GPU: AMD Instinct MI210
+  VRAM: 68.7 GB
+============================================================
+  CARGANDO PLANOS Y EXTRAYENDO ROIs
+============================================================
+  Modo ROI: corner_fixed  |  esquina fisica (X, Z) = (0, 10)
+  [i] PlaneAngle-145.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-145.00_Length499.00.mat -> 1 ROIs  (angulo=-145.00)
+  [i] PlaneAngle-150.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-150.00_Length499.00.mat -> 1 ROIs  (angulo=-150.00)
+  [i] PlaneAngle-155.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-155.00_Length499.00.mat -> 1 ROIs  (angulo=-155.00)
+  [i] PlaneAngle-160.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-160.00_Length499.00.mat -> 1 ROIs  (angulo=-160.00)
+  [i] PlaneAngle-165.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-165.00_Length499.00.mat -> 1 ROIs  (angulo=-165.00)
+  [i] PlaneAngle-170.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-170.00_Length499.00.mat -> 1 ROIs  (angulo=-170.00)
+  [i] PlaneAngle-175.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-175.00_Length499.00.mat -> 1 ROIs  (angulo=-175.00)
+  [i] PlaneAngle100.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle100.00_Length499.00.mat -> 1 ROIs  (angulo=100.00)
+  [i] PlaneAngle105.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle105.00_Length499.00.mat -> 1 ROIs  (angulo=105.00)
+  [i] PlaneAngle110.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle110.00_Length499.00.mat -> 1 ROIs  (angulo=110.00)
+  [i] PlaneAngle115.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle115.00_Length499.00.mat -> 1 ROIs  (angulo=115.00)
+  [i] PlaneAngle120.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle120.00_Length499.00.mat -> 1 ROIs  (angulo=120.00)
+  [i] PlaneAngle125.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle125.00_Length499.00.mat -> 1 ROIs  (angulo=125.00)
+  [i] PlaneAngle130.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle130.00_Length499.00.mat -> 1 ROIs  (angulo=130.00)
+  [i] PlaneAngle150.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle150.00_Length499.00.mat -> 1 ROIs  (angulo=150.00)
+  [i] PlaneAngle155.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle155.00_Length499.00.mat -> 1 ROIs  (angulo=155.00)
+  [i] PlaneAngle160.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle160.00_Length499.00.mat -> 1 ROIs  (angulo=160.00)
+  [i] PlaneAngle165.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle165.00_Length499.00.mat -> 1 ROIs  (angulo=165.00)
+  [i] PlaneAngle170.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle170.00_Length499.00.mat -> 1 ROIs  (angulo=170.00)
+  [i] PlaneAngle175.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle175.00_Length499.00.mat -> 1 ROIs  (angulo=175.00)
+  [i] PlaneAngle180.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle180.00_Length499.00.mat -> 1 ROIs  (angulo=180.00)
+  [i] PlaneAngle95.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle95.00_Length499.00.mat -> 1 ROIs  (angulo=95.00)
+
+ROIs base: 22  |  Forma: (22, 700, 2000)
+Rango TL: [-100.00, -4.17]
+Rango ángulos: [-175.00°, 180.00°]
+Data augmentation desactivado: 22 muestras (sin aumentar)
+Batches por época: 22
+
+============================================================
+  ENTRENANDO DIFFUSION TRANSFORMER (DiT)
+============================================================
+Parámetros entrenables: 64,306,305
+Configuración DiT:
+  - Hidden size: 512
+  - Depth: 12
+  - Num heads: 8
+  - MLP ratio: 4.0
+  - VAE latent channels: 128
+  - Diffusion steps: 1000
+  Época   1/500  |  MSE loss = 1.008274  |  LR = 2.20e-06  |  31s  ETA 15391s
+  Época  10/500  |  MSE loss = 1.000227  |  LR = 2.20e-05  |  249s  ETA 12193s
+  Época  20/500  |  MSE loss = 1.000417  |  LR = 4.40e-05  |  507s  ETA 12169s
+  Época  30/500  |  MSE loss = 0.999939  |  LR = 6.60e-05  |  821s  ETA 12858s
+  Época  40/500  |  MSE loss = 0.999890  |  LR = 8.80e-05  |  1122s  ETA 12897s
+  Época  50/500  |  MSE loss = 1.000735  |  LR = 9.90e-05  |  1357s  ETA 12214s
+  Época  60/500  |  MSE loss = 0.999865  |  LR = 9.68e-05  |  1598s  ETA 11721s
+  Época  70/500  |  MSE loss = 0.999372  |  LR = 9.46e-05  |  1840s  ETA 11301s
+  Época  80/500  |  MSE loss = 0.999985  |  LR = 9.24e-05  |  2080s  ETA 10919s
+  Época  90/500  |  MSE loss = 0.999821  |  LR = 9.02e-05  |  2320s  ETA 10570s
+  Época 100/500  |  MSE loss = 0.999651  |  LR = 8.80e-05  |  2563s  ETA 10251s
+  Época 110/500  |  MSE loss = 0.999817  |  LR = 8.58e-05  |  2808s  ETA 9957s
+  Época 120/500  |  MSE loss = 1.000251  |  LR = 8.36e-05  |  3052s  ETA 9663s
+  Época 130/500  |  MSE loss = 1.000245  |  LR = 8.14e-05  |  3310s  ETA 9422s
+  Época 140/500  |  MSE loss = 0.999759  |  LR = 7.92e-05  |  3567s  ETA 9172s
+  Época 150/500  |  MSE loss = 1.000064  |  LR = 7.70e-05  |  3811s  ETA 8893s
+  Época 160/500  |  MSE loss = 1.000197  |  LR = 7.48e-05  |  4124s  ETA 8764s
+  Época 170/500  |  MSE loss = 1.000172  |  LR = 7.26e-05  |  4437s  ETA 8613s
+  Época 180/500  |  MSE loss = 0.999925  |  LR = 7.04e-05  |  4682s  ETA 8324s
+  Época 190/500  |  MSE loss = 1.000402  |  LR = 6.82e-05  |  4936s  ETA 8053s
+  Época 200/500  |  MSE loss = 0.999866  |  LR = 6.60e-05  |  5193s  ETA 7789s
+  Época 210/500  |  MSE loss = 0.999586  |  LR = 6.38e-05  |  5501s  ETA 7596s
+  Época 220/500  |  MSE loss = 1.000303  |  LR = 6.16e-05  |  5812s  ETA 7397s
+  Época 230/500  |  MSE loss = 0.999967  |  LR = 5.94e-05  |  6146s  ETA 7215s
+  Época 240/500  |  MSE loss = 0.999742  |  LR = 5.72e-05  |  6501s  ETA 7042s
+  Época 250/500  |  MSE loss = 1.000022  |  LR = 5.50e-05  |  6830s  ETA 6830s
+  Época 260/500  |  MSE loss = 1.000136  |  LR = 5.28e-05  |  7081s  ETA 6536s
+  Época 270/500  |  MSE loss = 0.999604  |  LR = 5.06e-05  |  7325s  ETA 6239s
+  Época 280/500  |  MSE loss = 0.999578  |  LR = 4.84e-05  |  7563s  ETA 5942s
+  Época 290/500  |  MSE loss = 0.999881  |  LR = 4.62e-05  |  7811s  ETA 5656s
+  Época 300/500  |  MSE loss = 0.999952  |  LR = 4.40e-05  |  8055s  ETA 5370s
+  Época 310/500  |  MSE loss = 1.000243  |  LR = 4.18e-05  |  8294s  ETA 5083s
+  Época 320/500  |  MSE loss = 1.000205  |  LR = 3.96e-05  |  8534s  ETA 4800s
+  Época 330/500  |  MSE loss = 0.999880  |  LR = 3.74e-05  |  8775s  ETA 4521s
+  Época 340/500  |  MSE loss = 0.999909  |  LR = 3.52e-05  |  9015s  ETA 4242s
+  Época 350/500  |  MSE loss = 0.999961  |  LR = 3.30e-05  |  9254s  ETA 3966s
+  Época 360/500  |  MSE loss = 1.000290  |  LR = 3.08e-05  |  9494s  ETA 3692s
+  Época 370/500  |  MSE loss = 0.999859  |  LR = 2.86e-05  |  9731s  ETA 3419s
+  Época 380/500  |  MSE loss = 0.999981  |  LR = 2.64e-05  |  9968s  ETA 3148s
+  Época 390/500  |  MSE loss = 0.999841  |  LR = 2.42e-05  |  10205s  ETA 2878s
+  Época 400/500  |  MSE loss = 1.000642  |  LR = 2.20e-05  |  10440s  ETA 2610s
+  Época 410/500  |  MSE loss = 1.000345  |  LR = 1.98e-05  |  10675s  ETA 2343s
+  Época 420/500  |  MSE loss = 1.000191  |  LR = 1.76e-05  |  10909s  ETA 2078s
+  Época 430/500  |  MSE loss = 0.999962  |  LR = 1.54e-05  |  11143s  ETA 1814s
+  Época 440/500  |  MSE loss = 1.000290  |  LR = 1.32e-05  |  11376s  ETA 1551s
+  Época 450/500  |  MSE loss = 1.000109  |  LR = 1.10e-05  |  11612s  ETA 1290s
+  Época 460/500  |  MSE loss = 0.999846  |  LR = 8.80e-06  |  11852s  ETA 1031s
+  Época 470/500  |  MSE loss = 1.000254  |  LR = 6.60e-06  |  12088s  ETA 772s
+  Época 480/500  |  MSE loss = 1.000233  |  LR = 4.40e-06  |  12326s  ETA 514s
+  Época 490/500  |  MSE loss = 1.000093  |  LR = 2.20e-06  |  12565s  ETA 256s
+  Época 500/500  |  MSE loss = 1.000225  |  LR = 0.00e+00  |  12805s  ETA 0s
+
+Entrenamiento completado en 12805s (213.4 min)
+Curva de entrenamiento guardada.
+
+Modelo guardado en: /home/j.framinan/Intento_Transformers/output/dit_model_latest.pt
+
+============================================================
+  ¡LISTO! Entrenamiento du DiT completado
+  Resultados en: /home/j.framinan/Intento_Transformers/output/train/PNG
+============================================================
+mié 08 abr 2026 18:33:03 CEST
+Finished

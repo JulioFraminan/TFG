@@ -1,3 +1,22 @@
+# Dependencias unificadas de los subproyectos activos:
+# - Transformers_2
+# - unet_ae_modular
+# - Manipulacion_de_Planos
+
 numpy
 h5py
+matplotlib
+scipy
+
+torch
+torchvision
+
+einops
+accelerate
+ema-pytorch
+timm
+tqdm
+packaging
+torchdiffeq
+
 pyvista

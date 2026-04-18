@@ -1,0 +1,55 @@
+Failed to parse CPUID
+Traceback (most recent call last):
+  File "/home/j.framinan/Intento_Transformers/train.py", line 268, in main
+    mat_data = scipy.io.loadmat(mat_path)
+  File "/home/j.framinan/.local/lib/python3.10/site-packages/scipy/io/matlab/_mio.py", line 234, in loadmat
+    MR, _ = mat_reader_factory(f, **kwargs)
+  File "/home/j.framinan/.local/lib/python3.10/site-packages/scipy/io/matlab/_mio.py", line 80, in mat_reader_factory
+    raise NotImplementedError('Please use HDF reader for matlab v7.3 '
+NotImplementedError: Please use HDF reader for matlab v7.3 files, e.g. h5py
+Traceback (most recent call last):
+  File "/home/j.framinan/Intento_Transformers/train.py", line 268, in main
+    mat_data = scipy.io.loadmat(mat_path)
+  File "/home/j.framinan/.local/lib/python3.10/site-packages/scipy/io/matlab/_mio.py", line 234, in loadmat
+    MR, _ = mat_reader_factory(f, **kwargs)
+  File "/home/j.framinan/.local/lib/python3.10/site-packages/scipy/io/matlab/_mio.py", line 80, in mat_reader_factory
+    raise NotImplementedError('Please use HDF reader for matlab v7.3 '
+NotImplementedError: Please use HDF reader for matlab v7.3 files, e.g. h5py
+Traceback (most recent call last):
+  File "/home/j.framinan/Intento_Transformers/train.py", line 268, in main
+    mat_data = scipy.io.loadmat(mat_path)
+  File "/home/j.framinan/.local/lib/python3.10/site-packages/scipy/io/matlab/_mio.py", line 234, in loadmat
+    MR, _ = mat_reader_factory(f, **kwargs)
+  File "/home/j.framinan/.local/lib/python3.10/site-packages/scipy/io/matlab/_mio.py", line 80, in mat_reader_factory
+    raise NotImplementedError('Please use HDF reader for matlab v7.3 '
+NotImplementedError: Please use HDF reader for matlab v7.3 files, e.g. h5py
+Traceback (most recent call last):
+  File "/home/j.framinan/Intento_Transformers/train.py", line 268, in main
+    mat_data = scipy.io.loadmat(mat_path)
+  File "/home/j.framinan/.local/lib/python3.10/site-packages/scipy/io/matlab/_mio.py", line 234, in loadmat
+    MR, _ = mat_reader_factory(f, **kwargs)
+  File "/home/j.framinan/.local/lib/python3.10/site-packages/scipy/io/matlab/_mio.py", line 80, in mat_reader_factory
+    raise NotImplementedError('Please use HDF reader for matlab v7.3 '
+NotImplementedError: Please use HDF reader for matlab v7.3 files, e.g. h5py
+Traceback (most recent call last):
+  File "/home/j.framinan/Intento_Transformers/train.py", line 268, in main
+    mat_data = scipy.io.loadmat(mat_path)
+  File "/home/j.framinan/.local/lib/python3.10/site-packages/scipy/io/matlab/_mio.py", line 234, in loadmat
+    MR, _ = mat_reader_factory(f, **kwargs)
+  File "/home/j.framinan/.local/lib/python3.10/site-packages/scipy/io/matlab/_mio.py", line 80, in mat_reader_factory
+    raise NotImplementedError('Please use HDF reader for matlab v7.3 '
+NotImplementedError: Please use HDF reader for matlab v7.3 files, e.g. h5py
+Traceback (most recent call last):
+  File "/home/j.framinan/Intento_Transformers/train.py", line 268, in main
+    mat_data = scipy.io.loadmat(mat_path)
+  File "/home/j.framinan/.local/lib/python3.10/site-packages/scipy/io/matlab/_mio.py", line 234, in loadmat
+    MR, _ = mat_reader_factory(f, **kwargs)
+  File "/home/j.framinan/.local/lib/python3.10/site-packages/scipy/io/matlab/_mio.py", line 80, in mat_reader_factory
+    raise NotImplementedError('Please use HDF reader for matlab v7.3 '
+NotImplementedError: Please use HDF reader for matlab v7.3 files, e.g. h5py
+Traceback (most recent call last):
+  File "/home/j.framinan/Intento_Transformers/train.py", line 392, in <module>
+    main()
+  File "/home/j.framinan/Intento_Transformers/train.py", line 346, in main
+    fig_val.savefig(os.path.join(GENERATE_PNG_FOLDER, "validation_real_vs_gen.png"), dpi=150)
+NameError: name 'GENERATE_PNG_FOLDER' is not defined. Did you mean: 'TRAIN_PNG_FOLDER'?

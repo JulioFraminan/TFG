@@ -1,0 +1,21 @@
+Failed to parse CPUID
+Traceback (most recent call last):
+  File "/home/j.framinan/Intento_Transformers/train.py", line 478, in <module>
+    main()
+  File "/home/j.framinan/Intento_Transformers/train.py", line 223, in main
+    noise_pred_z = model.forward_latent(z_t, t, batch_ang)
+  File "/home/j.framinan/Intento_Transformers/model.py", line 577, in forward_latent
+    z_embed = block(z_embed, c)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/j.framinan/Intento_Transformers/model.py", line 305, in forward
+    x = self.attn(x)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/j.framinan/Intento_Transformers/model.py", line 255, in forward
+    attn = (q @ k.transpose(-2, -1)) * self.scale  # (B, num_heads, N, N)
+torch.cuda.OutOfMemoryError: HIP out of memory. Tried to allocate 14.10 GiB. GPU 0 has a total capacity of 63.98 GiB of which 6.27 GiB is free. Of the allocated memory 45.60 GiB is allocated by PyTorch, and 11.78 GiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_HIP_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)

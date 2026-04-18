@@ -1,0 +1,14 @@
+Starting job
+vie 10 abr 2026 18:51:52 CEST
+Project dir: /home/j.framinan/TFG_repo/Intento_Transformers
+Device: cuda
+Using checkpoint weights: ema_model_state_dict
+Normalizer loaded from checkpoint
+Loading VAE from: /home/j.framinan/TFG_repo/Intento_Transformers/../unet_ae_modular/output/unet_ae_model.pt
+ERROR loading VAE: cannot import name 'ConditionalUNetAE' from 'model' (/home/j.framinan/TFG_repo/Intento_Transformers/model.py)
+Falling back to LatentCodec
+Generating one sample at angle 2.500
+Saved quick test plot: /tmp/dit_quick_test.png
+TL stats: min=-100.000, max=-4.174, mean=-45.622
+vie 10 abr 2026 18:52:15 CEST
+Finished

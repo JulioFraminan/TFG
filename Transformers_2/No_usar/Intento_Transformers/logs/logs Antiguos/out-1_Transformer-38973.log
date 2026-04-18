@@ -1,0 +1,139 @@
+Starting job
+jue 09 abr 2026 23:44:44 CEST
+Project dir: /home/j.framinan/TFG_repo/Intento_Transformers
+Device: cuda
+  GPU: AMD Instinct MI210 (68.7 GB)
+======================================================================
+Loading data and extracting ROIs
+======================================================================
+  Modo ROI: corner_fixed  |  esquina fisica (X, Z) = (0, 10)
+  [i] PlaneAngle-145.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-145.00_Length499.00.mat -> 1 ROIs  (angulo=-145.00)
+  [i] PlaneAngle-150.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-150.00_Length499.00.mat -> 1 ROIs  (angulo=-150.00)
+  [i] PlaneAngle-155.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-155.00_Length499.00.mat -> 1 ROIs  (angulo=-155.00)
+  [i] PlaneAngle-160.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-160.00_Length499.00.mat -> 1 ROIs  (angulo=-160.00)
+  [i] PlaneAngle-165.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-165.00_Length499.00.mat -> 1 ROIs  (angulo=-165.00)
+  [i] PlaneAngle-170.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-170.00_Length499.00.mat -> 1 ROIs  (angulo=-170.00)
+  [i] PlaneAngle-175.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-175.00_Length499.00.mat -> 1 ROIs  (angulo=-175.00)
+  [i] PlaneAngle0.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle0.00_Length499.00.mat -> 1 ROIs  (angulo=0.00)
+  [i] PlaneAngle100.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle100.00_Length499.00.mat -> 1 ROIs  (angulo=100.00)
+  [i] PlaneAngle105.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle105.00_Length499.00.mat -> 1 ROIs  (angulo=105.00)
+  [i] PlaneAngle110.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle110.00_Length499.00.mat -> 1 ROIs  (angulo=110.00)
+  [i] PlaneAngle115.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle115.00_Length499.00.mat -> 1 ROIs  (angulo=115.00)
+  [i] PlaneAngle120.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle120.00_Length499.00.mat -> 1 ROIs  (angulo=120.00)
+  [i] PlaneAngle125.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle125.00_Length499.00.mat -> 1 ROIs  (angulo=125.00)
+  [i] PlaneAngle130.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle130.00_Length499.00.mat -> 1 ROIs  (angulo=130.00)
+  [i] PlaneAngle15.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle15.00_Length499.00.mat -> 1 ROIs  (angulo=15.00)
+  [i] PlaneAngle150.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle150.00_Length499.00.mat -> 1 ROIs  (angulo=150.00)
+  [i] PlaneAngle155.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle155.00_Length499.00.mat -> 1 ROIs  (angulo=155.00)
+  [i] PlaneAngle160.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle160.00_Length499.00.mat -> 1 ROIs  (angulo=160.00)
+  [i] PlaneAngle165.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle165.00_Length499.00.mat -> 1 ROIs  (angulo=165.00)
+  [i] PlaneAngle170.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle170.00_Length499.00.mat -> 1 ROIs  (angulo=170.00)
+  [i] PlaneAngle175.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle175.00_Length499.00.mat -> 1 ROIs  (angulo=175.00)
+  [i] PlaneAngle180.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle180.00_Length499.00.mat -> 1 ROIs  (angulo=180.00)
+  [i] PlaneAngle20.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle20.00_Length499.00.mat -> 1 ROIs  (angulo=20.00)
+  [i] PlaneAngle25.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle25.00_Length499.00.mat -> 1 ROIs  (angulo=25.00)
+  [i] PlaneAngle30.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle30.00_Length499.00.mat -> 1 ROIs  (angulo=30.00)
+  [i] PlaneAngle35.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle35.00_Length499.00.mat -> 1 ROIs  (angulo=35.00)
+  [i] PlaneAngle40.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle40.00_Length499.00.mat -> 1 ROIs  (angulo=40.00)
+  [i] PlaneAngle45.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle45.00_Length499.00.mat -> 1 ROIs  (angulo=45.00)
+  [i] PlaneAngle5.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle5.00_Length499.00.mat -> 1 ROIs  (angulo=5.00)
+  [i] PlaneAngle50.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle50.00_Length499.00.mat -> 1 ROIs  (angulo=50.00)
+  [i] PlaneAngle55.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle55.00_Length499.00.mat -> 1 ROIs  (angulo=55.00)
+  [i] PlaneAngle60.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle60.00_Length499.00.mat -> 1 ROIs  (angulo=60.00)
+  [i] PlaneAngle65.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle65.00_Length499.00.mat -> 1 ROIs  (angulo=65.00)
+  [i] PlaneAngle70.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle70.00_Length499.00.mat -> 1 ROIs  (angulo=70.00)
+  [i] PlaneAngle85.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle85.00_Length499.00.mat -> 1 ROIs  (angulo=85.00)
+  [i] PlaneAngle90.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle90.00_Length499.00.mat -> 1 ROIs  (angulo=90.00)
+  [i] PlaneAngle95.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle95.00_Length499.00.mat -> 1 ROIs  (angulo=95.00)
+ROIs loaded: 38
+ROI shape: 700 x 2000
+TL range: [-100.000, -4.174]
+Angle range: [-175.000, 180.000]
+Augmentation: OFF (38 samples)
+Batches per epoch: 10
+Latent shape: 117 x 334 (channels=1, ratio=6)
+======================================================================
+Training DiT
+======================================================================
+Trainable params: 38,548,398
+Model config: hidden=448, depth=11, heads=14, patch=2, attn_chunk=448
+Optimization config: grad_accum=1, ema_decay=0.9997, val_ddim_steps=400, ckpt=True
+Epoch    1/220 | loss=1.346378 | smooth=1.346378 | lr=3.75e-06 | elapsed=1m 38s eta=5h 58m 44s
+Epoch   10/220 | loss=0.134817 | smooth=0.874064 | lr=3.75e-05 | elapsed=16m 11s eta=5h 40m 0s
+Epoch   20/220 | loss=0.062617 | smooth=0.431513 | lr=7.50e-05 | elapsed=32m 21s eta=5h 23m 35s
+Epoch   30/220 | loss=0.068913 | smooth=0.235861 | lr=1.12e-04 | elapsed=48m 31s eta=5h 7m 19s
+Epoch   40/220 | loss=0.051496 | smooth=0.138908 | lr=1.50e-04 | elapsed=1h 4m 41s eta=4h 51m 6s
+Epoch   50/220 | loss=0.057268 | smooth=0.097094 | lr=1.49e-04 | elapsed=1h 20m 51s eta=4h 34m 54s
+Epoch   60/220 | loss=0.030598 | smooth=0.071346 | lr=1.46e-04 | elapsed=1h 37m 1s eta=4h 18m 44s
+Epoch   70/220 | loss=0.022872 | smooth=0.059056 | lr=1.41e-04 | elapsed=1h 53m 11s eta=4h 2m 33s
+Epoch   80/220 | loss=0.040091 | smooth=0.054563 | lr=1.34e-04 | elapsed=2h 9m 21s eta=3h 46m 22s
+Epoch   90/220 | loss=0.023623 | smooth=0.051788 | lr=1.26e-04 | elapsed=2h 25m 31s eta=3h 30m 12s
+Epoch  100/220 | loss=0.044314 | smooth=0.046119 | lr=1.16e-04 | elapsed=2h 41m 41s eta=3h 14m 2s
+Epoch  110/220 | loss=0.046785 | smooth=0.045462 | lr=1.06e-04 | elapsed=2h 57m 52s eta=2h 57m 52s
+Epoch  120/220 | loss=0.019373 | smooth=0.040498 | lr=9.42e-05 | elapsed=3h 14m 2s eta=2h 41m 41s
+Epoch  130/220 | loss=0.024271 | smooth=0.035897 | lr=8.25e-05 | elapsed=3h 30m 12s eta=2h 25m 31s
+Epoch  140/220 | loss=0.018103 | smooth=0.035309 | lr=7.08e-05 | elapsed=3h 46m 22s eta=2h 9m 21s
+Epoch  150/220 | loss=0.025510 | smooth=0.031592 | lr=5.94e-05 | elapsed=4h 2m 32s eta=1h 53m 11s
+Epoch  160/220 | loss=0.034447 | smooth=0.036829 | lr=4.88e-05 | elapsed=4h 18m 43s eta=1h 37m 1s
+Epoch  170/220 | loss=0.023409 | smooth=0.032599 | lr=3.91e-05 | elapsed=4h 34m 53s eta=1h 20m 50s
+Epoch  180/220 | loss=0.039455 | smooth=0.037201 | lr=3.08e-05 | elapsed=4h 51m 3s eta=1h 4m 40s
+Epoch  190/220 | loss=0.020871 | smooth=0.029551 | lr=2.40e-05 | elapsed=5h 7m 13s eta=48m 30s
+Epoch  200/220 | loss=0.024962 | smooth=0.032282 | lr=1.91e-05 | elapsed=5h 23m 23s eta=32m 20s
+Epoch  210/220 | loss=0.013292 | smooth=0.029703 | lr=1.60e-05 | elapsed=5h 39m 33s eta=16m 10s
+Epoch  220/220 | loss=0.018530 | smooth=0.030129 | lr=1.50e-05 | elapsed=5h 55m 43s eta=0s
+Training finished in 5h 55m 43s
+Training curve saved to: /home/j.framinan/TFG_repo/Intento_Transformers/output/train/PNG/training_curve_dit.png
+======================================================================
+Validation
+======================================================================
+
+============================================================
+  CARGANDO PLANOS DE VALIDACION
+============================================================
+  Modo ROI: corner_fixed  |  esquina fisica (X, Z) = (0, 10)
+  [OK] PlaneAngle10.00_Length499.00.mat -> 1 ROIs  (angulo=10.00)
+  [OK] PlaneAngle135.00_Length499.00.mat -> 1 ROIs  (angulo=135.00)
+  [OK] PlaneAngle140.00_Length499.00.mat -> 1 ROIs  (angulo=140.00)
+  [OK] PlaneAngle145.00_Length499.00.mat -> 1 ROIs  (angulo=145.00)
+  [OK] PlaneAngle75.00_Length499.00.mat -> 1 ROIs  (angulo=75.00)
+  [OK] PlaneAngle80.00_Length499.00.mat -> 1 ROIs  (angulo=80.00)
+vie 10 abr 2026 05:45:29 CEST
+Finished

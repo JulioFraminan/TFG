@@ -1,0 +1,28 @@
+Failed to parse CPUID
+Traceback (most recent call last):
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/generate.py", line 216, in _load_checkpoint_with_recovery
+    return torch.load(path, map_location=device, weights_only=False), path
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/serialization.py", line 1005, in load
+    with _open_zipfile_reader(opened_file) as opened_zipfile:
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/serialization.py", line 457, in __init__
+    super().__init__(torch._C.PyTorchFileReader(name_or_buffer))
+RuntimeError: PytorchStreamReader failed reading zip archive: failed finding central directory
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/j.framinan/Intento_Transformers/quick_test.py", line 20, in <module>
+    runpy.run_path(TARGET, run_name="__main__")
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/runpy.py", line 289, in run_path
+    return _run_module_code(code, init_globals, run_name,
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/runpy.py", line 96, in _run_module_code
+    _run_code(code, mod_globals, init_globals,
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/runpy.py", line 86, in _run_code
+    exec(code, run_globals)
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/quick_test.py", line 123, in <module>
+    main()
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/quick_test.py", line 42, in main
+    checkpoint, ckpt_path_used = _load_checkpoint_with_recovery(DIT_MODEL_PATH, device)
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/generate.py", line 223, in _load_checkpoint_with_recovery
+    raise RuntimeError(
+RuntimeError: Failed to load checkpoint at /home/j.framinan/TFG_repo/Intento_Transformers/output/dit_model_latest.pt. Error: PytorchStreamReader failed reading zip archive: failed finding central directory. Retrain or restore a valid checkpoint.

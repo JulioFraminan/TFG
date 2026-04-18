@@ -1,0 +1,23 @@
+Failed to parse CPUID
+Traceback (most recent call last):
+  File "/home/j.framinan/Intento_Transformers/generate.py", line 322, in <module>
+    main()
+  File "/home/j.framinan/Intento_Transformers/generate.py", line 210, in main
+    model.load_state_dict(checkpoint["model_state_dict"])
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 2153, in load_state_dict
+    raise RuntimeError('Error(s) in loading state_dict for {}:\n\t{}'.format(
+RuntimeError: Error(s) in loading state_dict for DiT:
+	Missing key(s) in state_dict: "vae_encoder.encoder.10.weight", "vae_encoder.encoder.10.bias", "vae_encoder.encoder.12.weight", "vae_encoder.encoder.12.bias", "vae_encoder.encoder.14.weight", "vae_encoder.encoder.14.bias", "vae_decoder.decoder.10.weight", "vae_decoder.decoder.10.bias", "vae_decoder.decoder.12.weight", "vae_decoder.decoder.12.bias", "vae_decoder.decoder.14.weight", "vae_decoder.decoder.14.bias". 
+	Unexpected key(s) in state_dict: "pos_embed". 
+	size mismatch for vae_encoder.encoder.8.weight: copying a param with shape torch.Size([128, 512, 3, 3]) from checkpoint, the shape in current model is torch.Size([1024, 512, 4, 4]).
+	size mismatch for vae_encoder.encoder.8.bias: copying a param with shape torch.Size([128]) from checkpoint, the shape in current model is torch.Size([1024]).
+	size mismatch for vae_decoder.decoder.0.weight: copying a param with shape torch.Size([512, 128, 3, 3]) from checkpoint, the shape in current model is torch.Size([4096, 128, 3, 3]).
+	size mismatch for vae_decoder.decoder.0.bias: copying a param with shape torch.Size([512]) from checkpoint, the shape in current model is torch.Size([4096]).
+	size mismatch for vae_decoder.decoder.2.weight: copying a param with shape torch.Size([512, 256, 4, 4]) from checkpoint, the shape in current model is torch.Size([4096, 2048, 4, 4]).
+	size mismatch for vae_decoder.decoder.2.bias: copying a param with shape torch.Size([256]) from checkpoint, the shape in current model is torch.Size([2048]).
+	size mismatch for vae_decoder.decoder.4.weight: copying a param with shape torch.Size([256, 128, 4, 4]) from checkpoint, the shape in current model is torch.Size([2048, 1024, 4, 4]).
+	size mismatch for vae_decoder.decoder.4.bias: copying a param with shape torch.Size([128]) from checkpoint, the shape in current model is torch.Size([1024]).
+	size mismatch for vae_decoder.decoder.6.weight: copying a param with shape torch.Size([128, 64, 4, 4]) from checkpoint, the shape in current model is torch.Size([1024, 512, 4, 4]).
+	size mismatch for vae_decoder.decoder.6.bias: copying a param with shape torch.Size([64]) from checkpoint, the shape in current model is torch.Size([512]).
+	size mismatch for vae_decoder.decoder.8.weight: copying a param with shape torch.Size([64, 1, 4, 4]) from checkpoint, the shape in current model is torch.Size([512, 256, 4, 4]).
+	size mismatch for vae_decoder.decoder.8.bias: copying a param with shape torch.Size([1]) from checkpoint, the shape in current model is torch.Size([256]).

@@ -1,0 +1,4 @@
+Failed to parse CPUID
+/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py:1150: UserWarning: expandable_segments not supported on this platform (Triggered internally at ../c10/hip/HIPAllocatorConfig.h:31.)
+  return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+slurmstepd-n008: error: *** JOB 38966 ON n008 CANCELLED AT 2026-04-09T23:15:26 ***

@@ -1,0 +1,14 @@
+Starting job
+vie 10 abr 2026 18:55:39 CEST
+Project dir: /home/j.framinan/TFG_repo/Intento_Transformers
+Device: cuda
+Using checkpoint weights: ema_model_state_dict
+Normalizer loaded from checkpoint
+Loading VAE from: /home/j.framinan/TFG_repo/Intento_Transformers/../unet_ae_modular/output/unet_ae_model.pt
+[VAE] Loaded ConditionalUNetAE checkpoint from /home/j.framinan/TFG_repo/Intento_Transformers/../unet_ae_modular/output/unet_ae_model.pt
+VAE codec loaded successfully
+Generating one sample at angle 2.500
+Saved quick test plot: /tmp/dit_quick_test.png
+TL stats: min=-100.000, max=-4.174, mean=-43.807
+vie 10 abr 2026 18:55:57 CEST
+Finished

@@ -1,0 +1,4 @@
+Starting job
+jue 09 abr 2026 22:17:17 CEST
+[ERROR] Estructura incompleta en: /var/spool/slurm/d/job38958
+        Esperados: train.py, data_utils.py, model.py

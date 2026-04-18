@@ -1,0 +1,29 @@
+Failed to parse CPUID
+Traceback (most recent call last):
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/train.py", line 449, in <module>
+    main()
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/train.py", line 255, in main
+    noise_pred = model(z_t, t, batch_ang)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/model.py", line 378, in forward
+    x = block(x, c)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/model.py", line 181, in forward
+    x = x + gate_attn.unsqueeze(1) * self.attn(modulate(self.norm1(x), shift_attn, scale_attn))
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/model.py", line 139, in forward
+    attn_out = self._chunked_attention(q, k, v)
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/model.py", line 130, in _chunked_attention
+    out[:, :, start:end, :] = self._attention_core(q[:, :, start:end, :], k, v)
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/model.py", line 117, in _attention_core
+    attn_probs = torch.softmax(attn_scores.float(), dim=-1).to(q.dtype)
+torch.cuda.OutOfMemoryError: HIP out of memory. Tried to allocate 116.00 MiB. GPU 0 has a total capacity of 63.98 GiB of which 0 bytes is free. Of the allocated memory 63.48 GiB is allocated by PyTorch, and 203.26 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_HIP_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)

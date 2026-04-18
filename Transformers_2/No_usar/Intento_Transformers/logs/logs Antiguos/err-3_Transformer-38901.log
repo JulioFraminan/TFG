@@ -1,0 +1,29 @@
+Failed to parse CPUID
+/home/j.framinan/Intento_Transformers/model.py:239: UserWarning: 1Torch was not compiled with flash attention. (Triggered internally at ../aten/src/ATen/native/transformers/hip/sdp_utils.cpp:264.)
+  x = F.scaled_dot_product_attention(q, k, v, dropout_p=self.attn_drop.p if self.training else 0.0)
+/home/j.framinan/Intento_Transformers/model.py:239: UserWarning: 1Torch was not compiled with memory efficient attention. (Triggered internally at ../aten/src/ATen/native/transformers/hip/sdp_utils.cpp:320.)
+  x = F.scaled_dot_product_attention(q, k, v, dropout_p=self.attn_drop.p if self.training else 0.0)
+Traceback (most recent call last):
+  File "/home/j.framinan/Intento_Transformers/train.py", line 253, in <module>
+    main()
+  File "/home/j.framinan/Intento_Transformers/train.py", line 184, in main
+    noise_pred = model(x_t, t, batch_ang)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/j.framinan/Intento_Transformers/model.py", line 483, in forward
+    z_embed = block(z_embed, c)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/j.framinan/Intento_Transformers/model.py", line 286, in forward
+    x = self.attn(x)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/j.framinan/Intento_Transformers/model.py", line 239, in forward
+    x = F.scaled_dot_product_attention(q, k, v, dropout_p=self.attn_drop.p if self.training else 0.0)
+torch.cuda.OutOfMemoryError: HIP out of memory. Tried to allocate 28.20 GiB. GPU 0 has a total capacity of 63.98 GiB of which 18.25 GiB is free. Of the allocated memory 31.75 GiB is allocated by PyTorch, and 228.29 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_HIP_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)

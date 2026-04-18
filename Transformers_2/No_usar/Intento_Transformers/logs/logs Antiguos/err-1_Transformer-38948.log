@@ -1,0 +1,9 @@
+Failed to parse CPUID
+Traceback (most recent call last):
+  File "/home/j.framinan/Intento_Transformers/train.py", line 477, in <module>
+    main()
+  File "/home/j.framinan/Intento_Transformers/train.py", line 158, in main
+    for param in model.vae_encoder.parameters():
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1688, in __getattr__
+    raise AttributeError(f"'{type(self).__name__}' object has no attribute '{name}'")
+AttributeError: 'DiT' object has no attribute 'vae_encoder'

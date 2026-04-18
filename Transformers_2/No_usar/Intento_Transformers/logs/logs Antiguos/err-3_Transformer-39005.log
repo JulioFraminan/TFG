@@ -1,0 +1,15 @@
+Failed to parse CPUID
+/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py:1150: UserWarning: expandable_segments not supported on this platform (Triggered internally at ../c10/hip/HIPAllocatorConfig.h:31.)
+  return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+Traceback (most recent call last):
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/train.py", line 507, in <module>
+    main()
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/train.py", line 284, in main
+    noise_pred = model(z_t, t, batch_ang)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/model.py", line 406, in forward
+    raise ValueError(
+ValueError: Expected 1 latent channels, got 256. Check config VAE_LATENT_CHANNELS and checkpoint compatibility.

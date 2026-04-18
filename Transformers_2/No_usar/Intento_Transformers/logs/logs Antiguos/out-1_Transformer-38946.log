@@ -1,0 +1,152 @@
+Starting job
+jue 09 abr 2026 15:04:05 CEST
+Dispositivo: cuda
+  GPU: AMD Instinct MI210
+  VRAM: 68.7 GB
+============================================================
+  CARGANDO PLANOS Y EXTRAYENDO ROIs
+============================================================
+  Modo ROI: corner_fixed  |  esquina fisica (X, Z) = (0, 10)
+  [i] PlaneAngle-145.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-145.00_Length499.00.mat -> 1 ROIs  (angulo=-145.00)
+  [i] PlaneAngle-150.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-150.00_Length499.00.mat -> 1 ROIs  (angulo=-150.00)
+  [i] PlaneAngle-155.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-155.00_Length499.00.mat -> 1 ROIs  (angulo=-155.00)
+  [i] PlaneAngle-160.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-160.00_Length499.00.mat -> 1 ROIs  (angulo=-160.00)
+  [i] PlaneAngle-165.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-165.00_Length499.00.mat -> 1 ROIs  (angulo=-165.00)
+  [i] PlaneAngle-170.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-170.00_Length499.00.mat -> 1 ROIs  (angulo=-170.00)
+  [i] PlaneAngle-175.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-175.00_Length499.00.mat -> 1 ROIs  (angulo=-175.00)
+  [i] PlaneAngle100.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle100.00_Length499.00.mat -> 1 ROIs  (angulo=100.00)
+  [i] PlaneAngle105.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle105.00_Length499.00.mat -> 1 ROIs  (angulo=105.00)
+  [i] PlaneAngle110.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle110.00_Length499.00.mat -> 1 ROIs  (angulo=110.00)
+  [i] PlaneAngle115.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle115.00_Length499.00.mat -> 1 ROIs  (angulo=115.00)
+  [i] PlaneAngle120.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle120.00_Length499.00.mat -> 1 ROIs  (angulo=120.00)
+  [i] PlaneAngle125.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle125.00_Length499.00.mat -> 1 ROIs  (angulo=125.00)
+  [i] PlaneAngle130.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle130.00_Length499.00.mat -> 1 ROIs  (angulo=130.00)
+  [i] PlaneAngle150.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle150.00_Length499.00.mat -> 1 ROIs  (angulo=150.00)
+  [i] PlaneAngle155.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle155.00_Length499.00.mat -> 1 ROIs  (angulo=155.00)
+  [i] PlaneAngle160.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle160.00_Length499.00.mat -> 1 ROIs  (angulo=160.00)
+  [i] PlaneAngle165.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle165.00_Length499.00.mat -> 1 ROIs  (angulo=165.00)
+  [i] PlaneAngle170.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle170.00_Length499.00.mat -> 1 ROIs  (angulo=170.00)
+  [i] PlaneAngle175.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle175.00_Length499.00.mat -> 1 ROIs  (angulo=175.00)
+  [i] PlaneAngle180.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle180.00_Length499.00.mat -> 1 ROIs  (angulo=180.00)
+  [i] PlaneAngle95.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle95.00_Length499.00.mat -> 1 ROIs  (angulo=95.00)
+
+ROIs base: 22  |  Forma: (22, 700, 2000)
+Rango TL: [-100.00, -4.17]
+Rango ángulos: [-175.00°, 180.00°]
+Data augmentation desactivado: 22 muestras (sin aumentar)
+Batches por época: 11
+
+============================================================
+  ENTRENANDO DIFFUSION TRANSFORMER (DiT)
+============================================================
+
+✓ Cargando VAE pre-entrenado desde: /home/j.framinan/unet_ae_modular/output/unet_ae_model.pt
+  ✓ VAE congelado (no se entrena, sólo se usa como encoder/decoder)
+
+Parámetros entrenables: 972,160
+Configuración DiT:
+  - Hidden size: 128
+  - Depth: 3
+  - Num heads: 2
+  - MLP ratio: 4.0
+  - VAE latent channels: 128
+  - Diffusion steps: 1000
+  Época   1/100  |  MSE loss = 1.326747  |  LR = 1.10e-04  |  16s  ETA 27m 15s
+  Época  10/100  |  MSE loss = 1.009559  |  LR = 4.71e-04  |  2m 41s  ETA 24m 13s
+  Época  20/100  |  MSE loss = 1.003124  |  LR = 4.19e-04  |  5m 17s  ETA 21m 8s
+  Época  30/100  |  MSE loss = 1.001971  |  LR = 3.67e-04  |  7m 53s  ETA 18m 25s
+  Época  40/100  |  MSE loss = 1.000507  |  LR = 3.14e-04  |  10m 28s  ETA 15m 43s
+  Época  50/100  |  MSE loss = 1.000379  |  LR = 2.62e-04  |  13m 3s  ETA 13m 3s
+  Época  60/100  |  MSE loss = 1.000733  |  LR = 2.10e-04  |  15m 36s  ETA 10m 24s
+  Época  70/100  |  MSE loss = 1.000507  |  LR = 1.57e-04  |  18m 11s  ETA 7m 47s
+  Época  80/100  |  MSE loss = 1.000117  |  LR = 1.05e-04  |  20m 45s  ETA 5m 11s
+  Época  90/100  |  MSE loss = 1.000252  |  LR = 5.24e-05  |  23m 20s  ETA 2m 35s
+  Época 100/100  |  MSE loss = 1.000206  |  LR = 0.00e+00  |  25m 57s  ETA 0s
+
+Entrenamiento completado en 25m 57s
+Curva de entrenamiento guardada.
+
+============================================================
+  VALIDACIÓN: GENERANDO PLANOS DE VALIDACIÓN
+============================================================
+Encontrados 6 planos de validación
+[DEBUG] z_0 shape: torch.Size([1, 128, 87, 250]), min: nan, max: nan, mean: nan
+[DEBUG] gen_np shape: (696, 2000), min: nan, max: nan, mean: nan
+[DEBUG] gen_norm_01 (after [-1,1] to [0,1]): min: nan, max: nan, mean: nan
+[DEBUG] gen_norm_01 (after clipping): min: nan, max: nan, mean: nan
+[DEBUG] gen_tl (denormalized to dB): min: nan, max: nan, mean: nan
+[DEBUG] gen_tl shape: (696, 2000), min: nan, max: nan, mean: nan
+[DEBUG] val_tl shape: (700, 2000), min: -100.00, max: -24.14, mean: -75.51
+  Error procesando PlaneAngle10.00_Length499.00.mat: operands could not be broadcast together with shapes (696,2000) (700,2000) 
+[DEBUG] z_0 shape: torch.Size([1, 128, 87, 250]), min: nan, max: nan, mean: nan
+[DEBUG] gen_np shape: (696, 2000), min: nan, max: nan, mean: nan
+[DEBUG] gen_norm_01 (after [-1,1] to [0,1]): min: nan, max: nan, mean: nan
+[DEBUG] gen_norm_01 (after clipping): min: nan, max: nan, mean: nan
+[DEBUG] gen_tl (denormalized to dB): min: nan, max: nan, mean: nan
+[DEBUG] gen_tl shape: (696, 2000), min: nan, max: nan, mean: nan
+[DEBUG] val_tl shape: (700, 2000), min: -100.00, max: -5.97, mean: -77.32
+  Error procesando PlaneAngle135.00_Length499.00.mat: operands could not be broadcast together with shapes (696,2000) (700,2000) 
+[DEBUG] z_0 shape: torch.Size([1, 128, 87, 250]), min: nan, max: nan, mean: nan
+[DEBUG] gen_np shape: (696, 2000), min: nan, max: nan, mean: nan
+[DEBUG] gen_norm_01 (after [-1,1] to [0,1]): min: nan, max: nan, mean: nan
+[DEBUG] gen_norm_01 (after clipping): min: nan, max: nan, mean: nan
+[DEBUG] gen_tl (denormalized to dB): min: nan, max: nan, mean: nan
+[DEBUG] gen_tl shape: (696, 2000), min: nan, max: nan, mean: nan
+[DEBUG] val_tl shape: (700, 2000), min: -100.00, max: -5.91, mean: -77.66
+  Error procesando PlaneAngle140.00_Length499.00.mat: operands could not be broadcast together with shapes (696,2000) (700,2000) 
+[DEBUG] z_0 shape: torch.Size([1, 128, 87, 250]), min: nan, max: nan, mean: nan
+[DEBUG] gen_np shape: (696, 2000), min: nan, max: nan, mean: nan
+[DEBUG] gen_norm_01 (after [-1,1] to [0,1]): min: nan, max: nan, mean: nan
+[DEBUG] gen_norm_01 (after clipping): min: nan, max: nan, mean: nan
+[DEBUG] gen_tl (denormalized to dB): min: nan, max: nan, mean: nan
+[DEBUG] gen_tl shape: (696, 2000), min: nan, max: nan, mean: nan
+[DEBUG] val_tl shape: (700, 2000), min: -100.00, max: -6.14, mean: -77.98
+  Error procesando PlaneAngle145.00_Length499.00.mat: operands could not be broadcast together with shapes (696,2000) (700,2000) 
+[DEBUG] z_0 shape: torch.Size([1, 128, 87, 250]), min: nan, max: nan, mean: nan
+[DEBUG] gen_np shape: (696, 2000), min: nan, max: nan, mean: nan
+[DEBUG] gen_norm_01 (after [-1,1] to [0,1]): min: nan, max: nan, mean: nan
+[DEBUG] gen_norm_01 (after clipping): min: nan, max: nan, mean: nan
+[DEBUG] gen_tl (denormalized to dB): min: nan, max: nan, mean: nan
+[DEBUG] gen_tl shape: (696, 2000), min: nan, max: nan, mean: nan
+[DEBUG] val_tl shape: (700, 2000), min: -100.00, max: -24.14, mean: -75.51
+  Error procesando PlaneAngle75.00_Length499.00.mat: operands could not be broadcast together with shapes (696,2000) (700,2000) 
+[DEBUG] z_0 shape: torch.Size([1, 128, 87, 250]), min: nan, max: nan, mean: nan
+[DEBUG] gen_np shape: (696, 2000), min: nan, max: nan, mean: nan
+[DEBUG] gen_norm_01 (after [-1,1] to [0,1]): min: nan, max: nan, mean: nan
+[DEBUG] gen_norm_01 (after clipping): min: nan, max: nan, mean: nan
+[DEBUG] gen_tl (denormalized to dB): min: nan, max: nan, mean: nan
+[DEBUG] gen_tl shape: (696, 2000), min: nan, max: nan, mean: nan
+[DEBUG] val_tl shape: (700, 2000), min: -100.00, max: -24.14, mean: -75.51
+  Error procesando PlaneAngle80.00_Length499.00.mat: operands could not be broadcast together with shapes (696,2000) (700,2000) 
+  Validación visual guardada en /home/j.framinan/Intento_Transformers/output/validation/PNG/validation_real_vs_gen.png
+
+Modelo guardado en: /home/j.framinan/Intento_Transformers/output/dit_model_latest.pt
+
+============================================================
+  ¡LISTO! Entrenamiento du DiT completado
+  Resultados en: /home/j.framinan/Intento_Transformers/output/train/PNG
+============================================================
+jue 09 abr 2026 15:34:22 CEST
+Finished

@@ -1,0 +1,110 @@
+Starting job
+jue 09 abr 2026 13:55:33 CEST
+Dispositivo: cuda
+  GPU: AMD Instinct MI210
+  VRAM: 68.7 GB
+============================================================
+  CARGANDO PLANOS Y EXTRAYENDO ROIs
+============================================================
+  Modo ROI: corner_fixed  |  esquina fisica (X, Z) = (0, 10)
+  [i] PlaneAngle-145.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-145.00_Length499.00.mat -> 1 ROIs  (angulo=-145.00)
+  [i] PlaneAngle-150.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-150.00_Length499.00.mat -> 1 ROIs  (angulo=-150.00)
+  [i] PlaneAngle-155.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-155.00_Length499.00.mat -> 1 ROIs  (angulo=-155.00)
+  [i] PlaneAngle-160.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-160.00_Length499.00.mat -> 1 ROIs  (angulo=-160.00)
+  [i] PlaneAngle-165.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-165.00_Length499.00.mat -> 1 ROIs  (angulo=-165.00)
+  [i] PlaneAngle-170.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-170.00_Length499.00.mat -> 1 ROIs  (angulo=-170.00)
+  [i] PlaneAngle-175.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle-175.00_Length499.00.mat -> 1 ROIs  (angulo=-175.00)
+  [i] PlaneAngle100.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle100.00_Length499.00.mat -> 1 ROIs  (angulo=100.00)
+  [i] PlaneAngle105.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle105.00_Length499.00.mat -> 1 ROIs  (angulo=105.00)
+  [i] PlaneAngle110.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle110.00_Length499.00.mat -> 1 ROIs  (angulo=110.00)
+  [i] PlaneAngle115.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle115.00_Length499.00.mat -> 1 ROIs  (angulo=115.00)
+  [i] PlaneAngle120.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle120.00_Length499.00.mat -> 1 ROIs  (angulo=120.00)
+  [i] PlaneAngle125.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle125.00_Length499.00.mat -> 1 ROIs  (angulo=125.00)
+  [i] PlaneAngle130.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle130.00_Length499.00.mat -> 1 ROIs  (angulo=130.00)
+  [i] PlaneAngle150.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle150.00_Length499.00.mat -> 1 ROIs  (angulo=150.00)
+  [i] PlaneAngle155.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle155.00_Length499.00.mat -> 1 ROIs  (angulo=155.00)
+  [i] PlaneAngle160.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle160.00_Length499.00.mat -> 1 ROIs  (angulo=160.00)
+  [i] PlaneAngle165.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle165.00_Length499.00.mat -> 1 ROIs  (angulo=165.00)
+  [i] PlaneAngle170.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle170.00_Length499.00.mat -> 1 ROIs  (angulo=170.00)
+  [i] PlaneAngle175.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle175.00_Length499.00.mat -> 1 ROIs  (angulo=175.00)
+  [i] PlaneAngle180.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle180.00_Length499.00.mat -> 1 ROIs  (angulo=180.00)
+  [i] PlaneAngle95.00_Length499.00.mat: esquina física (0, 10) -> pixel (776, 0)
+  [OK] PlaneAngle95.00_Length499.00.mat -> 1 ROIs  (angulo=95.00)
+
+ROIs base: 22  |  Forma: (22, 700, 2000)
+Rango TL: [-100.00, -4.17]
+Rango ángulos: [-175.00°, 180.00°]
+Data augmentation desactivado: 22 muestras (sin aumentar)
+Batches por época: 11
+
+============================================================
+  ENTRENANDO DIFFUSION TRANSFORMER (DiT)
+============================================================
+
+✓ Cargando VAE pre-entrenado desde: /home/j.framinan/unet_ae_modular/output/unet_ae_model.pt
+  ✓ VAE congelado (no se entrena, sólo se usa como encoder/decoder)
+
+Parámetros entrenables: 1,268,608
+Configuración DiT:
+  - Hidden size: 128
+  - Depth: 4
+  - Num heads: 2
+  - MLP ratio: 4.0
+  - VAE latent channels: 128
+  - Diffusion steps: 1000
+  Época   1/100  |  MSE loss = 1.358085  |  LR = 1.10e-06  |  26s  ETA 43m 15s
+  Época  10/100  |  MSE loss = 1.191605  |  LR = 1.10e-05  |  3m 56s  ETA 35m 28s
+  Época  20/100  |  MSE loss = 1.046898  |  LR = 2.20e-05  |  7m 29s  ETA 29m 59s
+  Época  30/100  |  MSE loss = 1.023330  |  LR = 3.30e-05  |  11m 24s  ETA 26m 36s
+  Época  40/100  |  MSE loss = 1.017348  |  LR = 4.40e-05  |  14m 58s  ETA 22m 27s
+  Época  50/100  |  MSE loss = 1.013212  |  LR = 5.50e-05  |  18m 56s  ETA 18m 56s
+  Época  60/100  |  MSE loss = 1.010212  |  LR = 6.60e-05  |  22m 38s  ETA 15m 5s
+  Época  70/100  |  MSE loss = 1.008592  |  LR = 7.70e-05  |  26m 17s  ETA 11m 16s
+  Época  80/100  |  MSE loss = 1.005913  |  LR = 8.80e-05  |  29m 59s  ETA 7m 29s
+  Época  90/100  |  MSE loss = 1.004673  |  LR = 9.90e-05  |  33m 33s  ETA 3m 43s
+  Época 100/100  |  MSE loss = 1.003377  |  LR = 0.00e+00  |  37m 6s  ETA 0s
+
+Entrenamiento completado en 37m 6s
+Curva de entrenamiento guardada.
+
+============================================================
+  VALIDACIÓN: GENERANDO PLANOS DE VALIDACIÓN
+============================================================
+Encontrados 6 planos de validación
+  Error procesando PlaneAngle10.00_Length499.00.mat: operands could not be broadcast together with shapes (696,2000) (700,2000) 
+  Error procesando PlaneAngle135.00_Length499.00.mat: operands could not be broadcast together with shapes (696,2000) (700,2000) 
+  Error procesando PlaneAngle140.00_Length499.00.mat: operands could not be broadcast together with shapes (696,2000) (700,2000) 
+  Error procesando PlaneAngle145.00_Length499.00.mat: operands could not be broadcast together with shapes (696,2000) (700,2000) 
+  Error procesando PlaneAngle75.00_Length499.00.mat: operands could not be broadcast together with shapes (696,2000) (700,2000) 
+  Error procesando PlaneAngle80.00_Length499.00.mat: operands could not be broadcast together with shapes (696,2000) (700,2000) 
+  Validación visual guardada en /home/j.framinan/Intento_Transformers/output/validation/PNG/validation_real_vs_gen.png
+
+Modelo guardado en: /home/j.framinan/Intento_Transformers/output/dit_model_latest.pt
+
+============================================================
+  ¡LISTO! Entrenamiento du DiT completado
+  Resultados en: /home/j.framinan/Intento_Transformers/output/train/PNG
+============================================================
+jue 09 abr 2026 14:39:26 CEST
+Finished

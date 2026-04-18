@@ -1,0 +1,31 @@
+Failed to parse CPUID
+Traceback (most recent call last):
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/train.py", line 484, in <module>
+    main()
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/train.py", line 293, in main
+    scaler.scale(loss).backward()
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/_tensor.py", line 522, in backward
+    torch.autograd.backward(
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/autograd/__init__.py", line 266, in backward
+    Variable._execution_engine.run_backward(  # Calls into the C++ engine to run the backward pass
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/utils/checkpoint.py", line 1112, in unpack_hook
+    frame.recompute_fn(*args)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/utils/checkpoint.py", line 1401, in recompute_fn
+    fn(*args, **kwargs)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/model.py", line 216, in forward
+    x = x + gate_attn.unsqueeze(1) * self.attn(modulate(self.norm1(x), shift_attn, scale_attn))
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1511, in _wrapped_call_impl
+    return self._call_impl(*args, **kwargs)
+  File "/home/j.framinan/.conda/envs/test_env/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1520, in _call_impl
+    return forward_call(*args, **kwargs)
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/model.py", line 174, in forward
+    attn_out = self._chunked_attention(q, k, v)
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/model.py", line 146, in _chunked_attention
+    out[:, :, start:end, :] = self._attention_core(q[:, :, start:end, :], k, v)
+  File "/home/j.framinan/TFG_repo/Intento_Transformers/model.py", line 124, in _attention_core
+    attn_scores = torch.matmul(q, k.transpose(-2, -1)) * self.scale
+torch.cuda.OutOfMemoryError: HIP out of memory. Tried to allocate 16.00 MiB. GPU 0 has a total capacity of 63.98 GiB of which 0 bytes is free. Of the allocated memory 63.56 GiB is allocated by PyTorch, and 21.09 MiB is reserved by PyTorch but unallocated. If reserved but unallocated memory is large try setting PYTORCH_HIP_ALLOC_CONF=expandable_segments:True to avoid fragmentation.  See documentation for Memory Management  (https://pytorch.org/docs/stable/notes/cuda.html#environment-variables)
