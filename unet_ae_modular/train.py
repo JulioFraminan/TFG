@@ -26,6 +26,26 @@ from config import (
     create_output_dirs,
 ) 
 
+
+def format_seconds(seconds):
+    """Convierte segundos a un formato legible (h, min, s).
+    
+    Ejemplos:
+        58000 → "16h 6m 40s"
+        3661  → "1h 1m 1s"
+        125   → "2m 5s"
+        45    → "45s"
+    """
+    seconds = int(max(0, seconds))
+    h = seconds // 3600
+    m = (seconds % 3600) // 60
+    s = seconds % 60
+    if h > 0:
+        return f"{h}h {m}m {s}s"
+    if m > 0:
+        return f"{m}m {s}s"
+    return f"{s}s"
+
  
 def main():
     # ══════════════════════════════════════════════════════════════════════
@@ -144,11 +164,11 @@ def main():
             eta = elapsed / epoch * (EPOCHS - epoch)
             print(
                 f"  Época {epoch:3d}/{EPOCHS}  |  L1 loss = {avg_loss:.6f}"
-                f"  |  {elapsed:.0f}s  ETA {eta:.0f}s"
+                f"  |  Elapsed: {format_seconds(elapsed)}  ETA: {format_seconds(eta)}"
             )
 
     total_time = time.time() - t0
-    print(f"\nEntrenamiento completado en {total_time:.0f}s ({total_time/60:.1f} min)")
+    print(f"\nEntrenamiento completado en {format_seconds(total_time)}")
 
     # ══════════════════════════════════════════════════════════════════════
     #  5. CURVA DE ENTRENAMIENTO

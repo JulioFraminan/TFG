@@ -4,8 +4,8 @@ import os
 #  PARÁMETROS DEL MODELO Y DATOS
 #  Las ROIs pueden ser rectangulares (alto × ancho).
 # ══════════════════════════════════════════════════════════════════
-ROI_HEIGHT     = 700        # alto del parche extraído del plano original
-ROI_WIDTH      = 2000       # ancho del parche extraído
+ROI_HEIGHT     = 480        # alto del parche extraído del plano original
+ROI_WIDTH      = 480       # ancho del parche extraído
 ROIS_PER_PLANE = 1
 # ══════════════════════════════════════════════════════════════════════
 #  MODO DE DEFINICIÓN DE LA ROI
@@ -24,7 +24,7 @@ ROI_CORNER = (0, 10)             # (X_físico, Z_físico) esquina SUPERIOR IZQUI
 #  PARÁMETROS DE ENTRENAMIENTO
 # ══════════════════════════════════════════════════════════════════════
 BATCH_SIZE       = 8
-EPOCHS           = 500
+EPOCHS           = 1000
 LEARNING_RATE    = 1e-4
 USE_AUGMENTATION = False        # True: x4 (ruido + contraste) | False: solo datos originales
 
