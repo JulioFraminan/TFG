@@ -7,8 +7,8 @@ DEFAULT_RESULTS_FOLDER = "results/intento_mat/dit_gaussian"
 ROI_DEFAULTS: Dict[str, Any] = {
     #"roi_height": 700,
     #"roi_width": 2000,
-    "roi_height": 256,
-    "roi_width": 512,
+    "roi_height": 480,
+    "roi_width": 1920,
     "rois_per_plane": 1,
     "roi_mode": "corner_fixed",
     "roi_corner_x": 0.0,
@@ -16,15 +16,15 @@ ROI_DEFAULTS: Dict[str, Any] = {
 }
 
 TRAIN_IMAGE_DEFAULTS: Dict[str, Any] = {
-    "train_height": 256,
-    "train_width": 512,
+    "train_height": 480,
+    "train_width": 1920,
     "quality_profile": "none",
 }
 
 MODEL_DEFAULTS: Dict[str, Any] = {
     "model_type": "dit",
     "dit_variant": "DiT-S/8",
-    "dit_class_dropout": 0.10,
+    "dit_class_dropout": 0.08,
     "dit_attn_type": "linear",
     "dit_mlp_ratio": 3.0,
     "dit_qk_norm": True,
@@ -36,11 +36,11 @@ MODEL_DEFAULTS: Dict[str, Any] = {
 
 DIFFUSION_DEFAULTS: Dict[str, Any] = {
     "algorithm": "gaussian",
-    "objective": "pred_noise",
+    "objective": "pred_v",
     "beta_schedule": "cosine",
     "timesteps": 1000,
-    "sampling_timesteps": 300,
-    "min_snr_loss_weight": False,
+    "sampling_timesteps": 350,
+    "min_snr_loss_weight": True,
     "min_snr_gamma": 5.0,
 }
 
@@ -56,7 +56,7 @@ FLOW_DEFAULTS: Dict[str, Any] = {
 
 OPTIMIZATION_DEFAULTS: Dict[str, Any] = {
     "train_batch_size": 8,
-    "train_lr": 2e-4,
+    "train_lr": 1.2e-4,
     "train_num_steps": 50000,
     "gradient_accumulate_every": 1,
     "ema_decay": 0.995,
@@ -78,9 +78,9 @@ TRAIN_VALIDATION_DEFAULTS: Dict[str, Any] = {
     "skip_post_validation": False,
     "validation_output_subdir": "validation",
     "validation_angles": "",
-    "validation_cond_scale": 2.5,
+    "validation_cond_scale": 2.0,
     "validation_sampler": "ddim",
-    "validation_num_inference_steps": -1,
+    "validation_num_inference_steps": 450,
     "validation_rows_per_page": 6,
     "validation_max_samples": -1,
 }
@@ -102,7 +102,7 @@ SEED_DEFAULT = 42
 
 
 def _default_input_folder(repo_root: Path) -> str:
-    return str((repo_root / "Intento_Transformers" / "input").resolve())
+    return str((repo_root / "Transformers_2" / "input").resolve())
 
 
 def _default_validation_folder(repo_root: Path) -> str:

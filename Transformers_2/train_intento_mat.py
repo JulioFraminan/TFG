@@ -43,7 +43,7 @@ from intento_mat_utils import (  # noqa: E402
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Train diffusion models on Intento_Transformers .mat/.h5 data using Transformers_2 infrastructure"
+        description="Train diffusion models on Transformers_2/input .mat/.h5 data using Transformers_2 infrastructure"
     )
     defaults = get_train_arg_defaults(str(REPO_ROOT))
 
@@ -802,19 +802,7 @@ def main() -> None:
 
     requested_angles = parse_angle_list(args.validation_angles) if args.validation_angles.strip() else []
 
-    # Keep signature and final model config aligned when auto patch-size adjustment is enabled.
-    _maybe_auto_adjust_dit_variant(args, train_h=args.train_height, train_w=args.train_width)
-
     set_seed(args.seed)
-
-    base_results_folder, results_folder, config_signature = _resolve_results_folder(args)
-    results_folder.mkdir(parents=True, exist_ok=True)
-
-    print(f"[results] Base folder: {base_results_folder}")
-    if config_signature is not None:
-        print(f"[results] Config signature: {config_signature} -> {results_folder}")
-    else:
-        print(f"[results] Legacy layout folder: {results_folder}")
 
     roi_corner = (args.roi_corner_x, args.roi_corner_z)
 
@@ -834,6 +822,28 @@ def main() -> None:
 
     if train_bundle.rois.size == 0:
         raise RuntimeError("No training ROIs found. Check input folder and ROI settings.")
+
+    roi_h_px = int(train_bundle.rois.shape[1])
+    roi_w_px = int(train_bundle.rois.shape[2])
+    if args.train_height != roi_h_px or args.train_width != roi_w_px:
+        print(
+            "[roi] Overriding train size to match ROI: "
+            f"({args.train_height}, {args.train_width}) -> ({roi_h_px}, {roi_w_px})"
+        )
+        args.train_height = roi_h_px
+        args.train_width = roi_w_px
+
+    # Keep signature and final model config aligned when auto patch-size adjustment is enabled.
+    _maybe_auto_adjust_dit_variant(args, train_h=args.train_height, train_w=args.train_width)
+
+    base_results_folder, results_folder, config_signature = _resolve_results_folder(args)
+    results_folder.mkdir(parents=True, exist_ok=True)
+
+    print(f"[results] Base folder: {base_results_folder}")
+    if config_signature is not None:
+        print(f"[results] Config signature: {config_signature} -> {results_folder}")
+    else:
+        print(f"[results] Legacy layout folder: {results_folder}")
 
     val_bundle = DatasetBundle(
         rois=np.array([], dtype=np.float32),

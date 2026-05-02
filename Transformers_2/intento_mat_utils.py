@@ -385,7 +385,7 @@ def parse_angle_list(angle_text: str) -> List[float]:
 
 
 def default_intento_input_folder(repo_root: str) -> str:
-    return os.path.join(repo_root, "Intento_Transformers", "input")
+    return os.path.join(repo_root, "Transformers_2", "input")
 
 
 def default_intento_validation_folder(repo_root: str) -> str:

@@ -1017,9 +1017,12 @@ class Trainer:
         self.model, self.opt = self.accelerator.prepare(self.model, self.opt)
         if compile_model:
             print("Compiling model...")
-            self.model = torch.compile(self.model) # mode="reduce-overhead"
-            # self.model.neural_net = torch.compile(self.model.neural_net) # mode="reduce-overhead"
-            print("Model compiled")
+            try:
+                self.model = torch.compile(self.model) # mode="reduce-overhead"
+                # self.model.neural_net = torch.compile(self.model.neural_net) # mode="reduce-overhead"
+                print("Model compiled")
+            except Exception as e:
+                print(f"torch.compile failed, continuing without compilation: {e}")
 
         if use_lr_scheduler:
             self.scheduler = self.accelerator.prepare(self.scheduler)
@@ -1131,7 +1134,11 @@ class Trainer:
 
                         # utils.save_image(all_images, str(self.results_folder / f'sample-{milestone}.png'), nrow = int(math.sqrt(self.num_samples)))
                         # grid = utils.make_grid(all_images, nrow=int(math.sqrt(self.num_samples)))
-                        fig, axes = plt.subplots(3, 3, figsize=(12,12))
+                        img_h = int(all_images.shape[-2])
+                        img_w = int(all_images.shape[-1])
+                        aspect = float(img_w) / float(img_h) if img_h > 0 else 1.0
+                        base = 12
+                        fig, axes = plt.subplots(3, 3, figsize=(base * aspect, base))
 
                         for i, ax in enumerate(axes.flat):
                             if i >= all_images.shape[0]:
@@ -1141,7 +1148,7 @@ class Trainer:
                                 image = all_images[i, 0].squeeze()
                             else:
                                 image = all_images[i].squeeze()
-                            im = ax.imshow(image.squeeze(), cmap='RdBu_r')#, vmin=np.min(simulations), vmax=np.max(simulations))#, cmap="jet")
+                            im = ax.imshow(image.squeeze(), cmap='RdBu_r', aspect='equal')#, vmin=np.min(simulations), vmax=np.max(simulations))#, cmap="jet")
                             cond_values = random_classes[i].detach().cpu().tolist()
                             cond_title = ", ".join([f"Cond{j + 1}={value:.2f}" for j, value in enumerate(cond_values)])
                             ax.set_title(cond_title)

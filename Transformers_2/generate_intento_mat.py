@@ -462,12 +462,14 @@ def main() -> None:
 
             fig, axes = plt.subplots(1, 3, figsize=(15, 5))
             im0 = axes[0].imshow(ref_tl, cmap="jet", origin="lower", aspect="auto", vmin=stats.tl_min, vmax=stats.tl_max, extent=extent)
+            axes[0].set_box_aspect(ref_tl.shape[0] / max(1, ref_tl.shape[1]))
             axes[0].set_title(f"Reference ({ref_angle:.2f} deg)")
             axes[0].set_xlabel("X [m]")
             axes[0].set_ylabel("Z [m]")
             plt.colorbar(im0, ax=axes[0], fraction=0.046, pad=0.04)
 
             im1 = axes[1].imshow(sample_tl, cmap="jet", origin="lower", aspect="auto", vmin=stats.tl_min, vmax=stats.tl_max, extent=extent)
+            axes[1].set_box_aspect(sample_tl.shape[0] / max(1, sample_tl.shape[1]))
             axes[1].set_title(f"Generated ({angle:.2f} deg)")
             axes[1].set_xlabel("X [m]")
             axes[1].set_ylabel("Z [m]")
@@ -476,6 +478,7 @@ def main() -> None:
             mae = float(np.mean(error_map))
             rmse = float(np.sqrt(np.mean(error_map ** 2)))
             im2 = axes[2].imshow(error_map, cmap="hot", origin="lower", aspect="auto", extent=extent)
+            axes[2].set_box_aspect(error_map.shape[0] / max(1, error_map.shape[1]))
             axes[2].set_title(f"|Error| MAE={mae:.3f} RMSE={rmse:.3f}")
             axes[2].set_xlabel("X [m]")
             axes[2].set_ylabel("Z [m]")
@@ -494,6 +497,7 @@ def main() -> None:
                 vmax=stats.tl_max,
                 extent=sample_extent,
             )
+            ax.set_box_aspect(sample_tl.shape[0] / max(1, sample_tl.shape[1]))
             ax.set_title(f"Generated ({angle:.2f} deg)")
             ax.set_xlabel("X [m]")
             ax.set_ylabel("Z [m]")

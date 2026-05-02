@@ -322,6 +322,7 @@ def run_validation(
                 vmax=stats.tl_max,
                 extent=extent,
             )
+            axes[row, 0].set_box_aspect(real_tl.shape[0] / max(1, real_tl.shape[1]))
             axes[row, 0].set_title(f"Validation reference ({angle_deg:+.2f} deg)")
             axes[row, 0].set_xlabel("X [m]")
             axes[row, 0].set_ylabel("Z [m]")
@@ -336,6 +337,7 @@ def run_validation(
                 vmax=stats.tl_max,
                 extent=extent,
             )
+            axes[row, 1].set_box_aspect(generated_tl.shape[0] / max(1, generated_tl.shape[1]))
             axes[row, 1].set_title(f"Generated ({angle_deg:+.2f} deg)")
             axes[row, 1].set_xlabel("X [m]")
             axes[row, 1].set_ylabel("Z [m]")
@@ -352,6 +354,7 @@ def run_validation(
                 vmin=0.0,
                 vmax=max(metrics["max_error"], 1e-6),
             )
+            axes[row, 2].set_box_aspect(error_map.shape[0] / max(1, error_map.shape[1]))
             axes[row, 2].set_title(
                 "|Error| "
                 f"MAE={metrics['mae']:.3f} "
