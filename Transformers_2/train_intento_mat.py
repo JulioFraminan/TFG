@@ -41,7 +41,7 @@ from intento_mat_utils import (  # noqa: E402
 )
 
 
-def parse_args() -> argparse.Namespace:
+def parse_args(argv: Optional[list[str]] = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Train diffusion models on Transformers_2/input .mat/.h5 data using Transformers_2 infrastructure"
     )
@@ -97,6 +97,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timesteps", type=int, default=1000)
     parser.add_argument("--sampling-timesteps", type=int, default=300)
     parser.add_argument("--min-snr-loss-weight", action="store_true")
+    parser.add_argument(
+        "--no-min-snr-loss-weight",
+        dest="min_snr_loss_weight",
+        action="store_false",
+        help="Disable min-SNR loss weighting.",
+    )
     parser.add_argument("--min-snr-gamma", type=float, default=5.0)
 
     parser.add_argument("--flow-path-type", type=str, choices=["Linear", "GVP", "VP"], default="Linear")
@@ -175,7 +181,7 @@ def parse_args() -> argparse.Namespace:
     parser.set_defaults(milestone_validation_png=True)
     parser.set_defaults(**defaults)
 
-    return parser.parse_args()
+    return parser.parse_args(argv)
 
 
 def _explicit_cli_destinations(argv: list[str]) -> Set[str]:
@@ -268,6 +274,16 @@ def _token_count(train_h: int, train_w: int, patch_size: int) -> int:
 
 def _bytes_to_gib(value: float) -> float:
     return float(value) / float(1024 ** 3)
+
+
+def _device_vram_gib(device: torch.device) -> float | None:
+    if device.type != "cuda" or not torch.cuda.is_available():
+        return None
+    try:
+        props = torch.cuda.get_device_properties(device)
+        return _bytes_to_gib(float(props.total_memory))
+    except Exception:
+        return None
 
 
 def _apply_quality_profile(args: argparse.Namespace) -> None:
@@ -368,12 +384,25 @@ def _print_dit_memory_report(args: argparse.Namespace, model: torch.nn.Module, t
     approx_block_bytes = (2.0 * attn_scores_bytes) + qkv_bytes
     approx_total_bytes = approx_block_bytes * depth
 
+    block_gib = _bytes_to_gib(approx_block_bytes)
+    total_gib = _bytes_to_gib(approx_total_bytes)
+    vram_gib = _device_vram_gib(torch.device("cuda"))
+    if vram_gib:
+        block_pct = (block_gib / vram_gib) * 100.0
+        total_pct = (total_gib / vram_gib) * 100.0
+        vram_text = f" | vram~{vram_gib:.1f} GiB"
+        pct_text = f" ({block_pct:.1f}% / {total_pct:.1f}%)"
+    else:
+        vram_text = ""
+        pct_text = ""
+
     print(
         "DiT memory estimate (rough): "
-        f"block~{_bytes_to_gib(approx_block_bytes):.2f} GiB, "
-        f"all_blocks~{_bytes_to_gib(approx_total_bytes):.2f} GiB "
-        f"(micro_batch={args.train_batch_size}, effective_batch={args.train_batch_size * args.gradient_accumulate_every}, "
-        f"precision_bytes={bytes_per_value})."
+        f"block~{block_gib:.2f} GiB, "
+        f"all_blocks~{total_gib:.2f} GiB"
+        f"{pct_text}"
+        f" (micro_batch={args.train_batch_size}, effective_batch={args.train_batch_size * args.gradient_accumulate_every}, "
+        f"precision_bytes={bytes_per_value}){vram_text}."
     )
 
 
@@ -792,12 +821,15 @@ def _build_metadata(
     }
 
 
-def main() -> None:
-    args = parse_args()
+def run_training(
+    args: argparse.Namespace,
+    explicit_cli_dests: Optional[Set[str]] = None,
+    on_validation: Optional[callable] = None,
+) -> Dict[str, Any]:
+    if explicit_cli_dests is None:
+        explicit_cli_dests = _explicit_cli_destinations(sys.argv)
 
-    explicit_cli_dests = _explicit_cli_destinations(sys.argv)
     _apply_config_file(args, explicit_cli_dests)
-
     _apply_quality_profile(args)
 
     requested_angles = parse_angle_list(args.validation_angles) if args.validation_angles.strip() else []
@@ -939,6 +971,8 @@ def main() -> None:
                         f"RMSE={summary.get('mean_rmse')} | "
                         f"MAX={summary.get('mean_max_error')}"
                     )
+                if callable(on_validation):
+                    on_validation(milestone, summary)
 
             milestone_validation_callback = _run_milestone_validation_png
 
@@ -1010,20 +1044,32 @@ def main() -> None:
 
     if args.skip_post_validation:
         print("Post-training validation skipped (--skip-post-validation).")
-        return
+        return {
+            "status": "skipped",
+            "reason": "skip_post_validation",
+        }
 
     if not trainer.accelerator.is_main_process:
-        return
+        return {
+            "status": "skipped",
+            "reason": "not_main_process",
+        }
 
     if val_bundle.rois.size == 0:
         print("Validation skipped: no validation .mat files found")
-        return
+        return {
+            "status": "skipped",
+            "reason": "no_validation_data",
+        }
 
     try:
         checkpoint_path = _discover_latest_checkpoint(results_folder)
     except FileNotFoundError as error:
         print(f"Validation skipped: {error}")
-        return
+        return {
+            "status": "skipped",
+            "reason": "no_checkpoint",
+        }
 
     from validation import run_validation
 
@@ -1031,7 +1077,7 @@ def main() -> None:
     print("Running post-training validation report")
     print("=" * 72)
 
-    run_validation(
+    summary = run_validation(
         results_folder=results_folder,
         metadata=metadata,
         checkpoint_path=checkpoint_path,
@@ -1046,6 +1092,16 @@ def main() -> None:
         max_samples=args.validation_max_samples,
         seed=args.seed,
     )
+    if callable(on_validation):
+        final_step = int(args.train_num_steps) if int(args.train_num_steps) > 0 else 0
+        on_validation(final_step, summary)
+    return summary
+
+
+def main() -> None:
+    args = parse_args()
+    explicit_cli_dests = _explicit_cli_destinations(sys.argv)
+    run_training(args, explicit_cli_dests=explicit_cli_dests)
 
 
 if __name__ == "__main__":

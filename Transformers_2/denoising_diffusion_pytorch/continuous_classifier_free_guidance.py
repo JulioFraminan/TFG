@@ -575,7 +575,7 @@ class GaussianDiffusion(nn.Module):
         elif beta_schedule == 'cosine':
             betas = cosine_beta_schedule(timesteps)
         elif beta_schedule == 'sigmoid':
-            beta_schedule_fn = sigmoid_beta_schedule
+            betas = sigmoid_beta_schedule(timesteps)
         else:
             raise ValueError(f'unknown beta schedule {beta_schedule}')
 
