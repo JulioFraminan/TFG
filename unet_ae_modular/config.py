@@ -5,7 +5,7 @@ import os
 #  Las ROIs pueden ser rectangulares (alto × ancho).
 # ══════════════════════════════════════════════════════════════════
 ROI_HEIGHT     = 480        # alto del parche extraído del plano original
-ROI_WIDTH      = 480       # ancho del parche extraído
+ROI_WIDTH      = 1520       # ancho del parche extraído
 ROIS_PER_PLANE = 1
 # ══════════════════════════════════════════════════════════════════════
 #  MODO DE DEFINICIÓN DE LA ROI
@@ -15,7 +15,7 @@ ROIS_PER_PLANE = 1
 #                   superior izquierda de la ROI.
 # ══════════════════════════════════════════════════════════════════════
 ROI_MODE = "corner_fixed"          # opciones: "center_max" | "corner_fixed"
-ROI_CORNER = (0, 10)             # (X_físico, Z_físico) esquina SUPERIOR IZQUIERDA
+ROI_CORNER = (50, -5)             # (X_físico, Z_físico) esquina SUPERIOR IZQUIERDA
                                      # del gráfico (visual, con origin="lower").
                                      # X = borde izquierdo,  Z = borde superior.
                                      # La ROI crece hacia abajo y a la derecha.
@@ -24,7 +24,7 @@ ROI_CORNER = (0, 10)             # (X_físico, Z_físico) esquina SUPERIOR IZQUI
 #  PARÁMETROS DE ENTRENAMIENTO
 # ══════════════════════════════════════════════════════════════════════
 BATCH_SIZE       = 8
-EPOCHS           = 1000
+EPOCHS           = 500
 LEARNING_RATE    = 1e-4
 USE_AUGMENTATION = False        # True: x4 (ruido + contraste) | False: solo datos originales
 
