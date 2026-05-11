@@ -353,16 +353,6 @@ def main():
                     else:
                         gap = None
 
-                    # Imprimir info de vecinos
-                    lo_str = (f"{ang_lower:+.2f}\u00b0 (dif={diff_lower:.2f}\u00b0)"
-                              if ang_lower is not None else "---")
-                    hi_str = (f"{ang_upper:+.2f}\u00b0 (dif={diff_upper:.2f}\u00b0)"
-                              if ang_upper is not None else "---")
-                    gap_str = f"{gap:.2f}\u00b0" if gap is not None else "---"
-                    print(f"  Angulo val {val_angle:+.2f}\u00b0  |  "
-                          f"vecino inf: {lo_str}  |  vecino sup: {hi_str}  |  "
-                          f"gap: {gap_str}")
-
                     # --- Generar predicción usando semilla más cercana ---
                     dists = np.abs(roi_angles_arr - val_angle)
                     idx_seed = np.argmin(dists)
@@ -382,6 +372,21 @@ def main():
                     max_val = errors['max_error']
                     rmse_val = errors['rmse']
                     mape_val = errors['mape']
+
+                    # Imprimir info de vecinos y métricas
+                    lo_str = (f"{ang_lower:+.2f}\u00b0 (dif={diff_lower:.2f}\u00b0)"
+                              if ang_lower is not None else "---")
+                    hi_str = (f"{ang_upper:+.2f}\u00b0 (dif={diff_upper:.2f}\u00b0)"
+                              if ang_upper is not None else "---")
+                    gap_str = f"{gap:.2f}\u00b0" if gap is not None else "---"
+                    mape_str = f"{mape_val:.2f}%" if mape_val != np.inf else "undef"
+                    print(
+                        f"  Angulo val {val_angle:+.2f}\u00b0  |  "
+                        f"vecino inf: {lo_str}  |  vecino sup: {hi_str}  |  "
+                        f"gap: {gap_str}  |  MAE: {mae_val:.2f} dB  |  "
+                        f"RMSE: {rmse_val:.2f} dB  |  MAPE: {mape_str}  |  "
+                        f"Max: {max_val:.2f} dB"
+                    )
                     all_maes.append(mae_val)
                     all_maxes.append(max_val)
                     all_gaps.append(gap)

@@ -15,7 +15,7 @@ ROIS_PER_PLANE = 1
 #                   superior izquierda de la ROI.
 # ══════════════════════════════════════════════════════════════════════
 ROI_MODE = "corner_fixed"          # opciones: "center_max" | "corner_fixed"
-ROI_CORNER = (50, -5)             # (X_físico, Z_físico) esquina SUPERIOR IZQUIERDA
+ROI_CORNER = (0, 10)             # (X_físico, Z_físico) esquina SUPERIOR IZQUIERDA
                                      # del gráfico (visual, con origin="lower").
                                      # X = borde izquierdo,  Z = borde superior.
                                      # La ROI crece hacia abajo y a la derecha.
@@ -25,8 +25,10 @@ ROI_CORNER = (50, -5)             # (X_físico, Z_físico) esquina SUPERIOR IZQU
 # ══════════════════════════════════════════════════════════════════════
 BATCH_SIZE       = 8
 EPOCHS           = 500
-LEARNING_RATE    = 1e-4
-USE_AUGMENTATION = False        # True: x4 (ruido + contraste) | False: solo datos originales
+LEARNING_RATE    = 5.380920824447353e-05
+WEIGHT_DECAY     = 4.898620823554843e-05
+USE_AUGMENTATION = True         # True: x4 (ruido + contraste) | False: solo datos originales
+MODEL_DROPOUT    = 0.18809363235942
 
 # ══════════════════════════════════════════════════════════════════════
 #  PARÁMETROS DE GENERACIÓN
