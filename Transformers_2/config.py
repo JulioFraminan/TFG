@@ -8,25 +8,25 @@ ROI_DEFAULTS: Dict[str, Any] = {
     #"roi_height": 700,
     #"roi_width": 2000,
     "roi_height": 480,
-    "roi_width": 1920,
+    "roi_width": 1520,
     "rois_per_plane": 1,
     "roi_mode": "corner_fixed",
-    "roi_corner_x": 0.0,
-    "roi_corner_z": 10.0,
+    "roi_corner_x": 50.0,
+    "roi_corner_z": -5.0,
 }
 
 TRAIN_IMAGE_DEFAULTS: Dict[str, Any] = {
     "train_height": 480,
-    "train_width": 1920,
+    "train_width": 1520,
     "quality_profile": "none",
 }
 
 MODEL_DEFAULTS: Dict[str, Any] = {
     "model_type": "dit",
     "dit_variant": "DiT-S/8",
-    "dit_class_dropout": 0.08,
+    "dit_class_dropout": 0.124,
     "dit_attn_type": "linear",
-    "dit_mlp_ratio": 3.0,
+    "dit_mlp_ratio": 2.872,
     "dit_qk_norm": True,
     "max_vanilla_attn_tokens": 4096,
     "unet_dim": 64,
@@ -39,9 +39,9 @@ DIFFUSION_DEFAULTS: Dict[str, Any] = {
     "objective": "pred_v",
     "beta_schedule": "cosine",
     "timesteps": 1000,
-    "sampling_timesteps": 350,
-    "min_snr_loss_weight": True,
-    "min_snr_gamma": 5.0,
+    "sampling_timesteps": 450,
+    "min_snr_loss_weight": False,
+    "min_snr_gamma": 6.9,
 }
 
 FLOW_DEFAULTS: Dict[str, Any] = {
@@ -55,9 +55,9 @@ FLOW_DEFAULTS: Dict[str, Any] = {
 }
 
 OPTIMIZATION_DEFAULTS: Dict[str, Any] = {
-    "train_batch_size": 8,
-    "train_lr": 1.2e-4,
-    "train_num_steps": 50000,
+    "train_batch_size": 2,
+    "train_lr": 2.15e-4,
+    "train_num_steps": 25000,
     "gradient_accumulate_every": 1,
     "ema_decay": 0.995,
     "save_and_sample_every": 1000,
@@ -78,7 +78,7 @@ TRAIN_VALIDATION_DEFAULTS: Dict[str, Any] = {
     "skip_post_validation": False,
     "validation_output_subdir": "validation",
     "validation_angles": "",
-    "validation_cond_scale": 2.0,
+    "validation_cond_scale": 2.649,
     "validation_sampler": "ddim",
     "validation_num_inference_steps": 450,
     "validation_rows_per_page": 6,
