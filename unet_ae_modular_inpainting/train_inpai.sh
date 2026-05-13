@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=0_inpai_train
+#SBATCH --job-name=2_inpai_train
 #SBATCH --nodes=1
 #SBATCH --nodelist=n008
 #SBATCH --ntasks=1
@@ -13,7 +13,7 @@
 
 set -e
 
-export ROCR_VISIBLE_DEVICES="0"
+export ROCR_VISIBLE_DEVICES="2"
 
 echo "Starting job"
 date
