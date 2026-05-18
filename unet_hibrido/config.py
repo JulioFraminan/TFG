@@ -5,8 +5,8 @@ import os
 #  PARÁMETROS DEL MODELO Y DATOS
 #  Las ROIs pueden ser rectangulares (alto × ancho).
 # ══════════════════════════════════════════════════════════════════
-ROI_HEIGHT     = 480        # alto del parche extraído del plano original
-ROI_WIDTH      = 1920       # ancho del parche extraído
+ROI_HEIGHT     = 165        # alto del parche extraído del plano original
+ROI_WIDTH      = 586       # ancho del parche extraído
 ROIS_PER_PLANE = 1
 # ══════════════════════════════════════════════════════════════════════
 #  MODO DE DEFINICIÓN DE LA ROI
@@ -24,7 +24,7 @@ ROI_CORNER = (7, -2)             # (X_físico, Z_físico) esquina SUPERIOR IZQUI
 # ══════════════════════════════════════════════════════════════════════
 #  PARÁMETROS DE NORMALIZACIÓN Y PREPROCESADO
 # ══════════════════════════════════════════════════════════════════════
-USE_GAUSSIAN_SMOOTHING = True
+USE_GAUSSIAN_SMOOTHING = False
 GAUSSIAN_SIGMA = (1.5, 1.0) # (vertical, horizontal) - blur anisotrópico sugerido
 # Solo se usa cuando USE_GAUSSIAN_SMOOTHING=False:
 #   True  -> prioriza tl_block
@@ -34,25 +34,25 @@ USE_BLOCK_VARIABLES_WHEN_NO_SMOOTHING = False
 # ══════════════════════════════════════════════════════════════════════
 #  PARÁMETROS DE ENTRENAMIENTO
 # ══════════════════════════════════════════════════════════════════════
-BATCH_SIZE       = 8
-EPOCHS           = 500
-LEARNING_RATE    = 5.380920824447353e-05
-WEIGHT_DECAY     = 4.898620823554843e-05
+BATCH_SIZE       = 2
+EPOCHS           = 100
+LEARNING_RATE    = 0.000298347215695851
+WEIGHT_DECAY     = 1.4078771640310131e-06
 USE_AUGMENTATION = True         # True: x4 (ruido + contraste) | False: solo datos originales
-MODEL_DROPOUT    = 0.18809363235942
+MODEL_DROPOUT    = 0.001628865534519769
 SEED             = 42
-POINTS_PER_ROI   = 20000
-PINN_DATA_BATCH_SIZE = 4096
-PINN_DATA_WEIGHT = 1.0
+POINTS_PER_ROI   = 10000
+PINN_DATA_BATCH_SIZE = 2048
+PINN_DATA_WEIGHT = 0.0011676680646696214
 
 # =============================
 # PHYSICS / PINN PARAMETERS
 # =============================
 PHYSICS_BATCH_SIZE = 0
-DATA_WEIGHT = 1.0
-PHYSICS_WEIGHT = 0.5
-INTERFACE_BATCH_SIZE = 2048
-INTERFACE_WEIGHT = 0.1
+DATA_WEIGHT = 1.94891754000009
+PHYSICS_WEIGHT = 0.4920117797703285
+INTERFACE_BATCH_SIZE = 4096
+INTERFACE_WEIGHT = 0.6485586062583943
 PDE_TYPE = "two_layer_helmholtz"  # "none", "laplace", "helmholtz", "two_layer_helmholtz"
 
 # Two-medium acoustics (air/water)
