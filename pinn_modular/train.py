@@ -74,7 +74,7 @@ def norm_to_phys_z(z_norm, coord_norm):
 
 
 def compute_pde_residual(model, coords, coord_norm, norm, pde_type, helmholtz_k,
-                         frequency_hz, air_c, water_c, interface_z, air_above,
+                         frequency_hz, air_c, water_c, bounds, interface_z, air_above,
                          output_is_tl, ref_pressure,
                          tl_db_sign, tl_db_offset, tl_db_min, tl_db_max):
     if pde_type == "none":
@@ -121,6 +121,18 @@ def compute_pde_residual(model, coords, coord_norm, norm, pde_type, helmholtz_k,
         k_water_t = torch.tensor(k_water, device=coords.device, dtype=p.dtype)
 
         z_phys = norm_to_phys_z(coords[:, 1:2], coord_norm)
+        z_min = float(bounds[2])
+        z_max = float(bounds[3])
+
+        interface_in_roi = z_min < float(interface_z) < z_max
+        if not interface_in_roi:
+            if air_above:
+                use_air = z_min >= float(interface_z)
+            else:
+                use_air = z_max <= float(interface_z)
+            k_single = k_air_t if use_air else k_water_t
+            return p_xx + p_zz + (k_single ** 2) * p
+
         if air_above:
             mask_air = z_phys >= float(interface_z)
         else:
@@ -318,7 +330,7 @@ def main():
 
                 residual = compute_pde_residual(
                     model, coords_c, coord_norm, norm, PDE_TYPE, HELMHOLTZ_K,
-                    FREQUENCY_HZ, AIR_SOUND_SPEED, WATER_SOUND_SPEED,
+                    FREQUENCY_HZ, AIR_SOUND_SPEED, WATER_SOUND_SPEED, bounds,
                     interface_z, AIR_ABOVE_INTERFACE,
                     OUTPUT_IS_TL, TL_REF_PRESSURE,
                     TL_DB_SIGN, TL_DB_OFFSET, TL_DB_CLAMP_MIN, TL_DB_CLAMP_MAX,
