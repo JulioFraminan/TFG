@@ -16,7 +16,7 @@ if os.path.exists(cache_dir):
 #------ Configuración ------#
 
 
-folder = r"/home/j.framinan/TFG_repo/unet_ae_modular/output/generate/MAT"
+folder = r"/home/j.framinan/TFG_repo/unet_ae_modular_inpainting/output/generate/MAT"
 N_PLANES = None  # Pon None para cargar TODOS los archivos de la carpeta, o un número en específico
 
 # Configuración de exportación y visualización
@@ -26,7 +26,7 @@ VTS_OUTPUT_PATH = os.path.join(folder, "planos_rotados.vts")
 
 # MUY IMPORTANTE: Dimensiones de cada plano SIN filtrar. (p. ej. Nx, Ny)
 # El tamaño total del array original en el .mat debe ser igual a NX * NY
-PLANE_GRID_SHAPE = (700, 2000) 
+PLANE_GRID_SHAPE = (54, 190) 
 
 # Umbral de intensidad:
 ENABLE_TL_THRESHOLD = False
