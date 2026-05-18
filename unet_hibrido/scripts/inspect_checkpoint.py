@@ -20,7 +20,7 @@ if os.path.isdir(vf):
                         if kk in f:
                             return f[kk][:]
                     raise KeyError(keys)
-                tl=sg(fh, ['tl','TL','tL','tl_block'])
+                tl=sg(fh, ['tl','TL','tL','tl_smooth','tl_block'])
                 print('sample tl shape, min, max:', tl.T.shape, float(tl.T.min()), float(tl.T.max()))
         except Exception as e:
             print('error reading sample mat:', e)
