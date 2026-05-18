@@ -4,8 +4,8 @@ import os
 #  PARÁMETROS DEL MODELO Y DATOS
 #  Las ROIs pueden ser rectangulares (alto × ancho).
 # ══════════════════════════════════════════════════════════════════
-ROI_HEIGHT     = 480        # alto del parche extraído del plano original
-ROI_WIDTH      = 480       # ancho del parche extraído
+ROI_HEIGHT     = 54        # alto del parche extraído del plano original
+ROI_WIDTH      = 190       # ancho del parche extraído
 ROIS_PER_PLANE = 1
 # ══════════════════════════════════════════════════════════════════════
 #  MODO DE DEFINICIÓN DE LA ROI
@@ -15,11 +15,12 @@ ROIS_PER_PLANE = 1
 #                   superior izquierda de la ROI.
 # ══════════════════════════════════════════════════════════════════════
 ROI_MODE = "corner_fixed"          # opciones: "center_max" | "corner_fixed"
-ROI_CORNER = (50, -5)             # (X_físico, Z_físico) esquina SUPERIOR IZQUIERDA
+ROI_CORNER = (7, -2)             # (X_físico, Z_físico) esquina SUPERIOR IZQUIERDA
                                      # del gráfico (visual, con origin="lower").
                                      # X = borde izquierdo,  Z = borde superior.
                                      # La ROI crece hacia abajo y a la derecha.
                                      # Solo se usa cuando ROI_MODE == "corner_fixed".
+USE_BLOCK_VARIABLES = True
 # ══════════════════════════════════════════════════════════════════════
 #  PARÁMETROS DE ENTRENAMIENTO
 # ══════════════════════════════════════════════════════════════════════
@@ -34,8 +35,8 @@ MODEL_DROPOUT    = 0.18809363235942
 #  INPAINTING
 #  INPAINT_MODE:
 #    - "none"      -> sin inpainting
-#    - "train"     -> inpainting solo en entrenamiento
-#    - "inference" -> inpainting solo en generacion/validacion
+#    - "train"     -> inpainting solo en entrenamiento (mejor)
+#    - "inference" -> inpainting solo en generacion/validacion (bloques)
 #    - "both"      -> inpainting en entrenamiento y en generacion/validacion
 # ══════════════════════════════════════════════════════════════════════
 INPAINT_MODE = "none"
