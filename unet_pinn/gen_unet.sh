@@ -16,7 +16,7 @@ export CUDA_VISIBLE_DEVICES="0"
 echo "Starting job"
 date
 
-cd /home/j.framinan/TFG_repo/unet_ae_modular_inpainting
+cd /home/j.framinan/TFG_repo/unet_ae_modular
 
 #module load miniconda3/condabase
 #eval "$(conda shell.bash hook)"

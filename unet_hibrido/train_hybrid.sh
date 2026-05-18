@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=0_PINN_train
+#SBATCH --job-name=3_Hybrid_train
 #SBATCH --nodes=1
 #SBATCH --nodelist=n008
 #SBATCH --ntasks=1
@@ -13,12 +13,12 @@
 
 set -e
 
-export ROCR_VISIBLE_DEVICES="0"
+export ROCR_VISIBLE_DEVICES="3"
 
 echo "Starting job"
 date
 
-cd /home/j.framinan/TFG_repo/pinn_modular
+cd /home/j.framinan/TFG_repo/unet_hibrido
 
 source ~/.bashrc
 conda activate test_env

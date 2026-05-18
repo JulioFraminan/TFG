@@ -1,29 +1,28 @@
 #!/bin/bash
 
-#SBATCH --job-name=0_PINN_train
+#SBATCH --job-name=3_Optu_Hybrid
 #SBATCH --nodes=1
 #SBATCH --nodelist=n008
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=32G
-#SBATCH --time=24:00:00
+#SBATCH --time=100:00:00
 #SBATCH --partition=gpu
 #SBATCH --output=logs/out-%x-%j.log
 #SBATCH --error=logs/err-%x-%j.log
 
-set -e
-
-export ROCR_VISIBLE_DEVICES="0"
+export ROCR_VISIBLE_DEVICES="3"
 
 echo "Starting job"
 date
 
-cd /home/j.framinan/TFG_repo/pinn_modular
+cd /home/j.framinan/TFG_repo/unet_hibrido
 
-source ~/.bashrc
-conda activate test_env
+#module load miniconda3/condabase
+#eval "$(conda shell.bash hook)"
+#conda activate test_env
 
-python -u train.py
+python -u optuna_tune.py
 
 date
 echo "Finished"
