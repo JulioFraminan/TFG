@@ -1,11 +1,17 @@
-# UNet PINN Inpainting — UNet AE + Fisica (Helmholtz)
+# UNet PINN — UNet como solver físico en grilla
 
-Este proyecto fusiona el **UNet Autoencoder condicional (FiLM)** con la **fisica tipo PINN** (ecuaciones de Helmholtz) del modelo `pinn_modular`. El objetivo es mantener la rapidez del UNet y anadir coherencia fisica en el entrenamiento.
+Este proyecto usa un **UNet Autoencoder condicional (FiLM)** como predictor de imagen dentro de un marco PINN. La diferencia importante con [`unet_hibrido`](../unet_hibrido) es que aquí **no hay un MLP PINN separado**: la física se aplica directamente sobre la **salida en grilla del UNet** mediante diferencias finitas.
 
-Resumen rapido:
-- **Modelo**: UNet AE condicional por angulo (FiLM), con opcion de inpainting.
-- **Fisica**: perdida PDE (Laplace/Helmholtz/2 capas) + perdida de interfaz aire/agua.
-- **Derivadas**: diferencias finitas en la grilla de cada ROI (no collocation points).
+En otras palabras:
+- **unet_hibrido** = UNet + MLP + PINN
+- **unet_pinn** = UNet + física en grilla, sin MLP PINN separado
+
+⚠️ **Nota**: Este módulo es una variante anterior y más simple. Para la versión más completa y recomendada, ver [`unet_hibrido`](../unet_hibrido).
+
+Resumen rápido:
+- **Modelo**: UNet AE condicional por ángulo (FiLM), con opción de inpainting.
+- **Física**: pérdida PDE (Laplace/Helmholtz/2 capas) + pérdida de interfaz aire/agua.
+- **Derivadas**: diferencias finitas sobre la salida del UNet en la grilla de ROI.
 
 ---
 
@@ -26,18 +32,18 @@ unet_pinn/
 
 ---
 
-## Idea clave: UNet + PINN
+## Idea clave: UNet + física en grilla
 
-En el UNet puro, la loss es solo de reconstruccion (L1). Aqui se usa una loss compuesta:
+Aquí la red principal es el UNet y la física actúa como regularizador sobre su salida:
 
 ```
 loss = DATA_WEIGHT * data_loss
-     + PHYSICS_WEIGHT * (physics_loss + INTERFACE_WEIGHT * interface_loss)
+   + PHYSICS_WEIGHT * (physics_loss + INTERFACE_WEIGHT * interface_loss)
 ```
 
-- **data_loss**: L1 entre reconstruccion y TL real (o inpainting si aplica).
-- **physics_loss**: residual PDE calculado por diferencias finitas en la grilla.
-- **interface_loss**: continuidad de presion y velocidad en la interfaz aire/agua.
+- **data_loss**: L1 entre reconstrucción y TL real (o inpainting si aplica).
+- **physics_loss**: residual PDE calculado por diferencias finitas sobre la predicción del UNet.
+- **interface_loss**: continuidad de presión y velocidad en la interfaz aire/agua.
 
 ---
 
@@ -55,7 +61,7 @@ p = TL_REF_PRESSURE * exp(-tl_db * ln(10) / 20)
 Si `OUTPUT_IS_TL = False`, se asume que la salida ya es presion.
 
 ### 2) Residual PDE en la grilla
-Para cada ROI (H x W) se calcula el laplaciano con diferencias finitas centradas:
+Para cada ROI (H x W) se calcula el laplaciano con diferencias finitas centradas sobre la salida del UNet:
 
 ```
 p_xx(i,j) = (p(i,j+1) - 2p(i,j) + p(i,j-1)) / dx^2
@@ -94,10 +100,10 @@ Si `INTERFACE_BATCH_SIZE > 0`, se submuestrean columnas a lo largo de X para cal
 ## Diferencias finitas vs collocation points
 
 **Diferencias finitas (este proyecto):**
-- Se calcula la fisica en la **grilla discreta** de cada ROI.
-- Es mas barato y estable para un UNet que ya trabaja en pixeles.
-- Derivadas limitadas a la resolucion de la grilla (no continuo).
-- Residual PDE se evalua en todos los puntos interiores o en un subconjunto (segun `PHYSICS_BATCH_SIZE`).
+- Se calcula la física en la **grilla discreta** de cada ROI.
+- Es más barato y estable para un UNet que ya trabaja en píxeles.
+- Derivadas limitadas a la resolución de la grilla (no continuo).
+- Residual PDE se evalúa en todos los puntos interiores o en un subconjunto (según `PHYSICS_BATCH_SIZE`).
 
 **Collocation points (PINN MLP):**
 - Se muestrean puntos aleatorios (x, z, angulo) en el dominio continuo.

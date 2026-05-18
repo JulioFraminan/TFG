@@ -1,6 +1,13 @@
-# UNet PINN Inpainting — UNet AE + Fisica (Helmholtz)
+# UNet Hibrido — UNet + MLP + PINN (versión actual recomendada)
 
-Este proyecto fusiona el **UNet Autoencoder condicional (FiLM)** con la **fisica tipo PINN** (ecuaciones de Helmholtz) del modelo `pinn_modular`. El objetivo es mantener la rapidez del UNet y anadir coherencia fisica en el entrenamiento.
+Este es el **módulo híbrido principal y recomendado**. No es solo un UNet con física: combina
+
+- **UNet Autoencoder condicional (FiLM)** para reconstrucción rápida de planos TL.
+- **Un PINN MLP independiente** para la parte física y la regresión continua en coordenadas.
+- **Pérdidas físicas** sobre ese MLP: término PDE + término de interfaz aire/agua.
+- **Inpainting opcional** sobre la rama UNet para robustez frente a huecos.
+
+La idea es separar responsabilidades: el **UNet aprende la reconstrucción de imagen** y el **MLP aprende la función física continua**. Eso permite mantener la rapidez del UNet y, a la vez, meter coherencia física y restricciones de Helmholtz en el entrenamiento.
 
 Resumen rapido:
 - **Modelo**: UNet AE condicional por angulo (FiLM), con opcion de inpainting.
@@ -12,13 +19,14 @@ Resumen rapido:
 ## Estructura del proyecto
 
 ```
-unet_pinn/
-├── config.py        <- Parametros (datos + entrenamiento + fisica)
-├── model.py         <- UNet AE condicional con FiLM
+unet_hibrido/
+├── config.py        <- Parametros (datos + entrenamiento + fisica + optuna)
+├── model.py         <- UNet AE condicional con FiLM + PINN
 ├── data_utils.py    <- Carga de .mat, ROIs, normalizacion, augment, etc.
 ├── train.py         <- Entrenamiento con data loss + physics loss
 ├── generate.py      <- Generacion con modelo entrenado
 ├── analysis.py      <- Analisis/visualizaciones
+├── optuna_tune.py   <- Tuning automatico de hiperparametros
 ├── input/           <- .mat originales
 │   └── validation/  <- .mat reservados para validacion
 └── output/          <- Salidas (se crea automaticamente)
@@ -26,18 +34,22 @@ unet_pinn/
 
 ---
 
-## Idea clave: UNet + PINN
+## Idea clave: UNet + MLP + PINN
 
-En el UNet puro, la loss es solo de reconstruccion (L1). Aqui se usa una loss compuesta:
+Aquí hay dos rutas de optimización en paralelo:
 
 ```
-loss = DATA_WEIGHT * data_loss
-     + PHYSICS_WEIGHT * (physics_loss + INTERFACE_WEIGHT * interface_loss)
+loss_total = DATA_WEIGHT * data_loss_UNet
+       + PINN_DATA_WEIGHT * pinn_data_loss
+       + PHYSICS_WEIGHT * (physics_loss + INTERFACE_WEIGHT * interface_loss)
 ```
 
-- **data_loss**: L1 entre reconstruccion y TL real (o inpainting si aplica).
-- **physics_loss**: residual PDE calculado por diferencias finitas en la grilla.
-- **interface_loss**: continuidad de presion y velocidad en la interfaz aire/agua.
+- **data_loss_UNet**: reconstrucción entre la salida del UNet y la ROI real.
+- **pinn_data_loss**: ajuste del MLP a muestras físicas extraídas de las ROIs.
+- **physics_loss**: residual PDE aplicado al MLP sobre puntos interiores / collocation points.
+- **interface_loss**: continuidad de presión y velocidad normal en la interfaz aire/agua.
+
+En otras palabras: el UNet resuelve la parte densa en píxeles y el MLP PINN resuelve la parte física continua.
 
 ---
 
@@ -54,21 +66,20 @@ p = TL_REF_PRESSURE * exp(-tl_db * ln(10) / 20)
 
 Si `OUTPUT_IS_TL = False`, se asume que la salida ya es presion.
 
-### 2) Residual PDE en la grilla
-Para cada ROI (H x W) se calcula el laplaciano con diferencias finitas centradas:
+### 2) Residual PDE en el espacio continuo del PINN
+El MLP PINN recibe coordenadas normalizadas `(x, z, angulo)` y el residual PDE se calcula con autograd:
 
 ```
-p_xx(i,j) = (p(i,j+1) - 2p(i,j) + p(i,j-1)) / dx^2
-p_zz(i,j) = (p(i+1,j) - 2p(i,j) + p(i-1,j)) / dz^2
+\partial_{xx} p, \partial_{zz} p \rightarrow residual de Laplace / Helmholtz / dos capas
 ```
 
-Esto solo se puede evaluar en puntos **interiores** (se pierde 1 pixel de borde). El residual final depende de `PDE_TYPE`:
+El residual final depende de `PDE_TYPE`:
 
 - `laplace`:   r = p_xx + p_zz
 - `helmholtz`: r = p_xx + p_zz + k^2 * p
 - `two_layer_helmholtz`: k cambia segun el medio (aire/agua) y la posicion z
 
-**Submuestreo:** si `PHYSICS_BATCH_SIZE > 0`, se selecciona un subconjunto aleatorio de puntos interiores para la loss. Si no, se usa todo el interior.
+**Submuestreo:** si `PHYSICS_BATCH_SIZE > 0`, se selecciona un subconjunto de puntos para el residual. Si no, se usa el conjunto completo disponible.
 
 ### 3) Interfaz aire/agua (interface_loss)
 Se evalua en dos filas cercanas a `z = INTERFACE_Z`:
@@ -93,11 +104,15 @@ Si `INTERFACE_BATCH_SIZE > 0`, se submuestrean columnas a lo largo de X para cal
 
 ## Diferencias finitas vs collocation points
 
-**Diferencias finitas (este proyecto):**
-- Se calcula la fisica en la **grilla discreta** de cada ROI.
-- Es mas barato y estable para un UNet que ya trabaja en pixeles.
-- Derivadas limitadas a la resolucion de la grilla (no continuo).
-- Residual PDE se evalua en todos los puntos interiores o en un subconjunto (segun `PHYSICS_BATCH_SIZE`).
+**UNet (reconstrucción en grilla):**
+- La salida de imagen sí vive en la **grilla discreta** de cada ROI.
+- Es la parte rápida y visual del sistema.
+- Se optimiza con pérdidas de reconstrucción e inpainting.
+
+**PINN MLP (física continua):**
+- Trabaja sobre puntos `(x, z, angulo)`.
+- Usa autograd para derivadas, no diferencias finitas.
+- Es la parte que impone la física y la interfaz.
 
 **Collocation points (PINN MLP):**
 - Se muestrean puntos aleatorios (x, z, angulo) en el dominio continuo.
@@ -108,12 +123,15 @@ En resumen: aqui la fisica **no** se calcula en un continuo infinito de puntos, 
 
 ---
 
-## Parametros importantes (config.py)
+## Parámetros importantes (config.py)
 
 ### Fisica
 - `PDE_TYPE`: "none" | "laplace" | "helmholtz" | "two_layer_helmholtz"
 - `PHYSICS_WEIGHT`: peso global de la fisica
 - `INTERFACE_WEIGHT`: peso de la interfaz
+- `PINN_DATA_WEIGHT`: peso del ajuste de datos del MLP PINN
+- `PINN_DATA_BATCH_SIZE`: tamaño del lote de datos del PINN
+- `POINTS_PER_ROI`: puntos muestreados por ROI para el PINN
 - `PHYSICS_BATCH_SIZE`: submuestreo de puntos PDE (0 = todos)
 - `INTERFACE_BATCH_SIZE`: submuestreo de columnas en interfaz (0 = todos)
 - `INTERFACE_Z`: z de interfaz (None = punto medio del ROI)

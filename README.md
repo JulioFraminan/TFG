@@ -1,34 +1,103 @@
-# TFG_repo: generacion condicionada de planos TL
+# TFG_repo: Generación condicionada de campos de Transmission Loss (TL)
 
 ![Resultado esperado de calidad](Manipulacion_de_Planos/test_quality.png)
 
-Repositorio con tres subproyectos documentados para modelado y post-procesado de campos de Transmission Loss (TL) condicionados por angulo.
+Repositorio con **7 proyectos principales de modelado** para campos acústicos de *Transmission Loss* condicionados por ángulo, más una utilidad de post-proceso 3D.
 
-## Resumen rapido
+## 📊 Comparativa de modelos
 
-| Ruta | Tipo de modelo | Estado | Uso recomendado |
+| Ruta | Tipo de modelo | Características | Recomendación |
 |---|---|---|---|
-| Transformers_2 | DiT + Diffusion (MAT/H5) | Activa y documentada | Maxima calidad y control generativo |
-| unet_ae_modular | UNet Autoencoder condicional | Activa | Iteracion rapida y menor coste |
-| Manipulacion_de_Planos | Postproceso MAT -> VTS (PyVista/ParaView) | Activa | Exportacion 3D para visualizacion y QA |
+| **unet_hibrido** ⭐ | UNet + MLP + PINN | Reconstrucción con UNet y física continua con un PINN MLP separado. | **Principal (recomendado)** |
+| Transformers_2 | DiT + Diffusion iterativo | Máxima calidad. Generación estocástica. ~6h entrenamiento. | Máxima calidad, tiempo disponible |
+| unet_ae_modular | UNet AE puro (determinista) | Rápido, compacto, sin física. ~30min entrenamiento. | Prototipado rápido |
+| unet_ae_modular_inpainting | UNet AE + Inpainting | UNet con capacidad de completa datos faltantes. | Datos incompletos/huecos |
+| unet_pinn | UNet AE + física en grilla | UNet dentro de un marco PINN, sin MLP físico separado. | Comparación/debugging |
+| Intento_FNO | Fourier Neural Operator | Operador espectral. Mezcla global de frecuencias. | Investigación |
+| pinn_modular | PINN MLP (collocation points) | Red neuronal pura + PDE. Sin autoencoder. | Investigación/baseline |
+| Manipulacion_de_Planos | Post-procesado (PyVista) | Conversión MAT → malla 3D VTS para ParaView. | Utilidad 3D |
 
-## Sub-README por carpeta
-
-- [Transformers_2/README.md](Transformers_2/README.md): flujo DiT principal (train, generate, validation).
-- [unet_ae_modular/README.md](unet_ae_modular/README.md): flujo UNet AE para iteracion rapida.
-- [Manipulacion_de_Planos/README.md](Manipulacion_de_Planos/README.md): conversion de MAT a malla 3D `.vts`.
-
-## Estructura global
+## 📁 Estructura del repositorio
 
 ```text
 TFG_repo/
-├── README.md
-├── Transformers_2/          # Ruta DiT principal (train_intento_mat / generate_intento_mat)
-├── unet_ae_modular/         # Ruta UNet AE
-└── Manipulacion_de_Planos/  # Rotacion de planos y exportacion VTS para ParaView
+├── README.md                           # Este archivo
+├── requirements.txt                    # Dependencias globales
+│
+├── unet_hibrido/                       # ⭐ PRINCIPAL: UNet + MLP + PINN híbrido
+│   ├── config.py                       # Parámetros (train + generate + optuna)
+│   ├── train.py                        # Entrenamiento con loss híbrida
+│   ├── generate.py                     # Generación con modelo entrenado
+│   ├── optuna_tune.py                  # Tuning automático de hiperparámetros
+│   └── [model.py, data_utils.py, ...]
+│
+├── Transformers_2/                     # DiT + Diffusion (máxima calidad)
+│   ├── train_intento_mat.py            # Entrenamiento
+│   ├── generate_intento_mat.py         # Generación iterativa
+│   ├── validation.py                   # Validación
+│   └── [config.py, intento_mat_utils.py, ...]
+│
+├── unet_ae_modular/                    # UNet AE puro (rápido)
+│   ├── train.py, generate.py
+│   └── [config.py, model.py, ...]
+│
+├── unet_ae_modular_inpainting/         # UNet AE + Inpainting
+│   ├── train.py, generate.py
+│   └── [parámetros de inpaint en config]
+│
+├── unet_pinn/                          # UNet AE + física en grilla (histórico)
+│   └── [config.py, train.py, ...]
+│
+├── Intento_FNO/                        # Fourier Neural Operator
+│   └── [config.py, train.py, ...]
+│
+├── pinn_modular/                       # PINN MLP puro (collocation points)
+│   ├── model.py                        # Red PINN (sin autoencoder)
+│   ├── train.py                        # Entrenamiento con autograd
+│   └── [config.py, data_utils.py, ...]
+│
+└── Manipulacion_de_Planos/             # Utilidad de post-proceso 3D
+    ├── Representacion_planos_pyvista.py
+    └── gen_vts.sh
 ```
 
-## Seccion DiT (actualizada)
+## 🚀 Flujos recomendados
+
+### Flujo 1: Producción/Prototipado rápido
+
+```
+unet_hibrido/train.py (30-50 min)
+  ↓
+unet_hibrido/generate.py (< 5 seg por ángulo)
+  ↓
+Manipulacion_de_Planos/Representacion_planos_pyvista.py (exportar VTS)
+  ↓
+Visualizacion en ParaView
+```
+
+### Flujo 2: Máxima calidad
+
+```
+Transformers_2/train_intento_mat.py (6+ horas)
+  ↓
+Transformers_2/generate_intento_mat.py (1-2 min por ángulo)
+  ↓
+Manipulacion_de_Planos/... (VTS)
+```
+
+### Flujo 3: Tuning automático de hiperparámetros
+
+```
+unet_hibrido/optuna_tune.py (--trials 30, --epochs 100)
+  ↓
+Resultados en unet_hibrido/results/optuna_unet_hybrid_v1/
+  ↓
+Copiar mejores parámetros a config.py
+  ↓
+unet_hibrido/train.py
+```
+
+## Sección DiT (actualizada)
 
 La ruta DiT recomendada en este repo es Transformers_2.
 
@@ -82,7 +151,7 @@ Notas importantes de la ruta DiT:
 - Cambiar config.py afecta defaults futuros; no reescribe metadata de experimentos ya entrenados.
 - En Transformers_2/No_usar quedan scripts movidos que no participan en este flujo.
 
-## Seccion UNet AE (actualizada)
+## Sección UNet AE (actualizada)
 
 La ruta UNet recomendada en este repo para iteracion rapida es unet_ae_modular.
 
@@ -138,7 +207,7 @@ Notas importantes de la ruta UNet AE:
 - Si existe input/validation, train.py ejecuta validacion al finalizar.
 - Es un flujo determinista y de menor coste que DiT para pruebas rapidas.
 
-## Seccion Manipulacion de Planos (resumen)
+## Sección Manipulación de Planos (resumen)
 
 La ruta Manipulacion_de_Planos se usa como postproceso para convertir planos .mat a una geometria 3D rotada por angulo y exportar .vts para ParaView.
 
@@ -169,8 +238,10 @@ Notas rapidas:
 - PLANE_GRID_SHAPE debe coincidir con las dimensiones reales de cada .mat.
 - Si un plano llega transpuesto, el script lo corrige automaticamente cuando detecta (ny, nx).
 
-## Recomendacion practica
+## Recomendación práctica
 
-- Si priorizas calidad final y control generativo: usa Transformers_2 (DiT).
-- Si priorizas velocidad de iteracion y coste bajo: usa unet_ae_modular.
-- Si necesitas visualizacion 3D o entrega en ParaView: usa Manipulacion_de_Planos tras generar MAT.
+- Si priorizas equilibrio entre velocidad y física: usa `unet_hibrido`.
+- Si priorizas calidad final y control generativo: usa `Transformers_2`.
+- Si priorizas velocidad de iteración y coste bajo: usa `unet_ae_modular`.
+- Si tus datos tienen huecos: usa `unet_ae_modular_inpainting`.
+- Si necesitas visualización 3D o entrega en ParaView: usa `Manipulacion_de_Planos` tras generar MAT.

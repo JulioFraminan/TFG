@@ -1,10 +1,11 @@
-# UNet Autoencoder Condicional — Generación rápida de planos TL
+# UNet Autoencoder Condicional + Inpainting — Generación rápida con relleno de datos
 
-**Generador compacto y rápido** de campos de *Transmission Loss* (TL) acústico usando autoencoder de arquitectura **UNet** con modulación **FiLM** condicionada por ángulo.
+**Generador robusto con inpainting** de campos de *Transmission Loss* (TL) acústico usando autoencoder **UNet** + modulación **FiLM** condicionada por ángulo, con capacidad de **rellenar regiones faltantes (huecos)** durante entrenamiento e inferencia.
 
-**⚡ Ventajas principais:**
+**⚡ Ventajas principales:**
 - Entrenamiento rápido (~30 minutos, 70 épocas)
 - Generación en 1 forward pass (< 1 segundo)
+- **Inpainting integrado**: completa datos incompletos automáticamente
 - VRAM bajo (< 30% típicamente)
 - Ideal para prototipado e iteración rápida
 - Determinista y reproducible
