@@ -26,6 +26,21 @@ def _safe_get_dataset(f, keys):
     raise KeyError(f"Ninguna de las claves {keys} encontrada en el .mat. Claves disponibles: {avail}")
 
 
+def _sanitize_tl_array(tl):
+    """Convierte TL a float32 y sustituye NaN/Inf por un valor finito estable."""
+    tl = np.asarray(tl, dtype=np.float32)
+    finite_mask = np.isfinite(tl)
+    if np.all(finite_mask):
+        return tl
+
+    if np.any(finite_mask):
+        fill_value = float(np.nanmin(tl[finite_mask]))
+    else:
+        fill_value = 0.0
+
+    return np.nan_to_num(tl, nan=fill_value, posinf=fill_value, neginf=fill_value)
+
+
 # ══════════════════════════════════════════════════════════════════════
 #  EXTRACCIÓN DE ROIs (rectangulares)
 # ══════════════════════════════════════════════════════════════════════
@@ -291,23 +306,23 @@ def _load_rois_from_folder(folder, roi_h, roi_w, rois_per_plane,
                 if return_both:
                     # Cargar 'tl' (sin block) y 'tl_block'. Si no existen las dos, fallback.
                     try:
-                        tl = _safe_get_dataset(f, ['tl', 'TL', 'tL']).T
-                        tl_block = _safe_get_dataset(f, ['tl_block']).T
+                        tl = _sanitize_tl_array(_safe_get_dataset(f, ['tl', 'TL', 'tL', 'tl_smooth']).T)
+                        tl_block = _sanitize_tl_array(_safe_get_dataset(f, ['tl_block']).T)
                     except KeyError:
-                        tl = _safe_get_dataset(f, ['tl_block', 'tl', 'TL', 'tL']).T
+                        tl = _sanitize_tl_array(_safe_get_dataset(f, ['tl_block', 'tl', 'TL', 'tL', 'tl_smooth']).T)
                         tl_block = tl.copy()
                 else:
                     # Regla pedida:
                     # - Con smoothing activo: forzar variables normales (tl) y fallback a block.
                     # - Con smoothing desactivado: elegir prioridad por flag y fallback por orden.
                     if USE_GAUSSIAN_SMOOTHING:
-                        tl_keys = ['tl', 'TL', 'tL', 'tl_block']
+                        tl_keys = ['tl', 'TL', 'tL', 'tl_smooth', 'tl_block']
                     else:
                         if USE_BLOCK_VARIABLES_WHEN_NO_SMOOTHING:
-                            tl_keys = ['tl_block', 'tl', 'TL', 'tL']
+                            tl_keys = ['tl_block', 'tl', 'TL', 'tL','tl_smooth']
                         else:
-                            tl_keys = ['tl', 'TL', 'tL', 'tl_block']
-                    tl = _safe_get_dataset(f, tl_keys).T
+                            tl_keys = ['tl', 'TL', 'tL','tl_smooth', 'tl_block']
+                    tl = _sanitize_tl_array(_safe_get_dataset(f, tl_keys).T)
                     tl_block = tl
 
                 # Prefer coordinate grids that match the loaded TL resolution.
@@ -462,7 +477,8 @@ class Normalizer:
             )
 
         self.tl_min = float(rois.min())
-        self.tl_max = float(rois.max())
+        self.tl_min = float(np.nanmin(rois))
+        self.tl_max = float(np.nanmax(rois))
 
         angles_array = np.array(roi_angles, dtype=np.float32)
         if angles_array.size == 0:
@@ -472,6 +488,7 @@ class Normalizer:
 
     # --- TL ---
     def normalize_tl(self, x):
+        x = np.asarray(x, dtype=np.float32)
         return (x - self.tl_min) / (self.tl_max - self.tl_min + 1e-8)
 
     def denormalize_tl(self, x_norm):
