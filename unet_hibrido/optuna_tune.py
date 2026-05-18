@@ -5,6 +5,8 @@ import math
 import importlib
 import re
 import sys
+from datetime import datetime
+from uuid import uuid4
 from pathlib import Path
 
 import optuna
@@ -18,9 +20,9 @@ if str(PROJECT_DIR) not in sys.path:
 import config as cfg  # noqa: E402
 
 
-DEFAULT_TRIALS = 30
-DEFAULT_STUDY_NAME = "optuna_unet_hybrid_v1"
-DEFAULT_RESULTS_ROOT = "results/optuna_unet_hybrid_v1"
+DEFAULT_TRIALS = 100
+DEFAULT_STUDY_NAME = ""
+DEFAULT_RESULTS_ROOT = ""
 DEFAULT_EPOCHS = 100
 DEFAULT_TIMEOUT = 0
 DEFAULT_SEED = 42
@@ -29,17 +31,18 @@ DEFAULT_PRUNE_WARMUP = 60
 
 SEARCH_SPACE = {
     "batch_size": [2, 4, 8],
-    "learning_rate": (5e-6, 1e-3),
+    "learning_rate": (1e-4, 8e-4),
     "weight_decay": (1e-7, 1e-3),
-    "model_dropout": (0.0, 0.25),
-    "data_weight": (0.1, 2.0),
-    "pinn_data_weight": (0.0, 2.0),
-    "physics_weight": (1e-3, 1.0),
-    "interface_weight": (0.0, 0.5),
+    "model_dropout": (0.0, 0.05),
+    "data_weight": (1.0, 2.5),
+    # pinn_data_weight puede tomar valores muy pequeños; muestreo log recomendado
+    "pinn_data_weight": (1e-4, 2e-2),
+    "physics_weight": (0.2, 1.0),
+    "interface_weight": (0.3, 0.9),
     "pinn_data_batch_size": [1024, 2048, 4096, 8192],
-    "points_per_roi": [5000, 10000, 20000, 30000],
-    "physics_batch_size": [0, 4096, 16384],
-    "interface_batch_size": [0, 1024, 2048],
+    "points_per_roi": [5000, 10000, 20000],
+    "physics_batch_size": [0, 4096, 8192],
+    "interface_batch_size": [1024, 2048, 4096],
 }
 
 
@@ -66,6 +69,11 @@ def _trial_results_root(args: argparse.Namespace, trial: optuna.trial.Trial) -> 
 def _slug_float(value: float) -> str:
     txt = f"{float(value):.2f}"
     return txt.replace("-", "m").replace(".", "p")
+
+
+def _auto_run_tag() -> str:
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")
+    return f"optuna_unet_hybrid_{stamp}_{uuid4().hex[:6]}"
 
 
 def _trial_name(trial: optuna.trial.Trial) -> str:
@@ -97,6 +105,7 @@ def _patch_config_for_trial(
         "pinn_data_weight",
         SEARCH_SPACE["pinn_data_weight"][0],
         SEARCH_SPACE["pinn_data_weight"][1],
+        log=True,
     )
     weight_decay = trial.suggest_float(
         "weight_decay",
@@ -311,6 +320,11 @@ def main() -> None:
         print("[i] n_jobs > 1 no es seguro con recarga de config global; se fuerza n_jobs=1.")
         args.n_jobs = 1
 
+    if not args.study_name.strip():
+        args.study_name = _auto_run_tag()
+    if not args.results_root.strip():
+        args.results_root = str(Path("results") / args.study_name)
+
     results_root = Path(args.results_root).resolve()
     results_root.mkdir(parents=True, exist_ok=True)
 
@@ -335,12 +349,22 @@ def main() -> None:
     )
 
     timeout = args.timeout if args.timeout > 0 else None
-    study.optimize(
-        lambda trial: _run_trial(args, trial),
-        n_trials=args.trials,
-        timeout=timeout,
-        n_jobs=args.n_jobs,
-    )
+    try:
+        study.optimize(
+            lambda trial: _run_trial(args, trial),
+            n_trials=args.trials,
+            timeout=timeout,
+            n_jobs=args.n_jobs,
+        )
+    except ValueError as error:
+        msg = str(error)
+        if "CategoricalDistribution does not support dynamic value space" in msg:
+            print("[!] Optuna detecto un estudio previo incompatible con el nuevo SEARCH_SPACE.")
+            print("[!] Usa un study-name y/o storage nuevos (ej. ..._v2) para continuar.")
+            print(f"[i] study-name actual: {args.study_name}")
+            print(f"[i] storage actual: {storage}")
+            return
+        raise
 
     best = study.best_trial
     if best is not None:
