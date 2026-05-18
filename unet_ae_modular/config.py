@@ -15,11 +15,12 @@ ROIS_PER_PLANE = 1
 #                   superior izquierda de la ROI.
 # ══════════════════════════════════════════════════════════════════════
 ROI_MODE = "corner_fixed"          # opciones: "center_max" | "corner_fixed"
-ROI_CORNER = (0, 10)             # (X_físico, Z_físico) esquina SUPERIOR IZQUIERDA
+ROI_CORNER = (7, -2)             # (X_físico, Z_físico) esquina SUPERIOR IZQUIERDA
                                      # del gráfico (visual, con origin="lower").
                                      # X = borde izquierdo,  Z = borde superior.
                                      # La ROI crece hacia abajo y a la derecha.
                                      # Solo se usa cuando ROI_MODE == "corner_fixed".
+USE_BLOCK_VARIABLES = True
 # ══════════════════════════════════════════════════════════════════════
 #  PARÁMETROS DE ENTRENAMIENTO
 # ══════════════════════════════════════════════════════════════════════

@@ -4,7 +4,7 @@ import os
 # MODEL AND DATA PARAMETERS
 # -----------------------------
 ROI_HEIGHT = 480
-ROI_WIDTH = 480
+ROI_WIDTH = 1520
 ROIS_PER_PLANE = 1
 
 # ROI definition mode:
@@ -12,6 +12,7 @@ ROIS_PER_PLANE = 1
 # "corner_fixed" -> use ROI_CORNER as top-left corner in physical coords
 ROI_MODE = "corner_fixed"
 ROI_CORNER = (0, 10)
+USE_BLOCK_VARIABLES = True
 
 # -----------------------------
 # TRAINING PARAMETERS

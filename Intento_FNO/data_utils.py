@@ -42,12 +42,25 @@ def extract_roi_at(tl, ci, cj, roi_h, roi_w):
     return tl[i0:i1, j0:j1], i0, j0
 
 
+def _get_z_axis(Z_raw):
+    """Detecta automáticamente la estructura de Z_raw (antigua o nueva) y devuelve el eje Z completo."""
+    z_row = Z_raw[0, :].flatten()
+    z_col = Z_raw[:, 0].flatten()
+    return z_row if z_row.size > z_col.size else z_col
+
+
 def phys_to_pixel(X_raw, Z_raw, x_phys, z_phys):
-    """Convert physical coords (X, Z) to pixel indices in tl.T."""
+    """Convert physical coordinates (X, Z) to pixel indices in tl.T.
+    
+    Soporta ambas estructuras de Z_raw:
+      • Antigua: shape (1, 60)  → Z[0, :] tiene datos
+      • Nueva:  shape (60, 1)   → Z[:, 0] tiene datos
+    """
     x_axis = X_raw[:, 0]
     col_idx = int(np.argmin(np.abs(x_axis - x_phys)))
 
-    z_axis = Z_raw[0, :]
+    # Detectar automáticamente la estructura de Z
+    z_axis = _get_z_axis(Z_raw)
     row_idx = int(np.argmin(np.abs(z_axis - z_phys)))
 
     return row_idx, col_idx
@@ -60,7 +73,7 @@ def phys_size_to_pixels(X_raw, Z_raw, roi_h, roi_w):
 
     try:
         x_axis = X_raw[:, 0]
-        z_axis = Z_raw[0, :]
+        z_axis = _get_z_axis(Z_raw)
     except Exception:
         dx = 1.0
         dz = 1.0
@@ -108,7 +121,7 @@ def extract_roi_at_corner(tl, corner_i, corner_j, roi_h, roi_w):
 def compute_roi_extent(X_raw, Z_raw, i0, j0, roi_h, roi_w):
     """Compute physical extent [x_left, x_right, z_bottom, z_top]."""
     x_axis = X_raw[:, 0]
-    z_axis = Z_raw[0, :]
+    z_axis = _get_z_axis(Z_raw)
 
     x_left = float(x_axis[j0])
     x_right = float(x_axis[min(j0 + roi_w - 1, len(x_axis) - 1)])
@@ -163,6 +176,8 @@ def extract_multiple_rois(tl, roi_h, roi_w, num_rois=5,
 # DATA LOADING
 # ------------------------------
 
+from config import USE_BLOCK_VARIABLES
+
 def _extract_angle(fname):
     """Extract angle from filename (PlaneAngle-104.47 -> -104.47)."""
     m = re.search(r"PlaneAngle(-?\d+(?:\.\d+)?)", fname)
@@ -183,9 +198,10 @@ def _load_rois_from_folder(folder, roi_h, roi_w, rois_per_plane,
         fpath = os.path.join(folder, fname)
         try:
             with h5py.File(fpath, "r") as f:
-                tl = _safe_get_dataset(f, ["tl", "TL", "tL"]).T
-                X_raw = _safe_get_dataset(f, ["X", "x", "R", "r"])
-                Z_raw = _safe_get_dataset(f, ["Z", "z"])
+                tl_keys = ["tl_block", "tl", "TL", "tL"] if USE_BLOCK_VARIABLES else ["tl", "TL", "tL", "tl_block"]
+                tl = _safe_get_dataset(f, tl_keys).T
+                X_raw = _safe_get_dataset(f, ["R_block", "X", "x", "R", "r"])
+                Z_raw = _safe_get_dataset(f, ["Z_block", "Z", "z"])
         except Exception as e:
             print(f"  [!] Error with {fname}: {e}")
             continue

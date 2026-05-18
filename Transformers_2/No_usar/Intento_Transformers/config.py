@@ -8,6 +8,7 @@ ROI_WIDTH      = 2000
 ROIS_PER_PLANE = 1
 ROI_MODE = "corner_fixed"
 ROI_CORNER = (0, 10)
+USE_BLOCK_VARIABLES = True
 
 # ══════════════════════════════════════════════════════════════════════════
 #  PARÁMETROS DE DIFUSIÓN

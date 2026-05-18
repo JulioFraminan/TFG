@@ -51,12 +51,23 @@ def extract_roi_at(tl, ci, cj, roi_h, roi_w):
     return tl[i0:i1, j0:j1], i0, j0
 
 
+def _get_z_axis(Z_raw):
+    """Detecta automáticamente la estructura de Z_raw (antigua o nueva) y devuelve el eje Z completo."""
+    z_row = Z_raw[0, :].flatten()
+    z_col = Z_raw[:, 0].flatten()
+    return z_row if z_row.size > z_col.size else z_col
+
+
 def phys_to_pixel(X_raw, Z_raw, x_phys, z_phys):
     """Convierte coordenadas físicas (X, Z) a índices de píxel en tl.T.
 
     En el .mat (antes de transponer):
       • X varía a lo largo del eje 0 (filas raw)  → columnas tras .T
       • Z varía a lo largo del eje 1 (cols raw)   → filas tras .T
+
+    Soporta ambas estructuras:
+      • Z antiguo: shape (1, 60)  → Z[0, :] tiene datos
+      • Z nuevo:  shape (60, 1)   → Z[:, 0] tiene datos
 
     Returns:
         (row_idx, col_idx) índices en la matriz transpuesta tl.T
@@ -65,8 +76,9 @@ def phys_to_pixel(X_raw, Z_raw, x_phys, z_phys):
     x_axis = X_raw[:, 0]          # vector 1-D que contiene todos los X
     col_idx = int(np.argmin(np.abs(x_axis - x_phys)))  # → col en tl.T
 
-    # Eje Z en raw: Z[0, :] (cada columna tiene una Z distinta)
-    z_axis = Z_raw[0, :]          # vector 1-D que contiene todos los Z
+    # Eje Z: usar helper para detectar automáticamente
+    z_axis = _get_z_axis(Z_raw)
+    
     row_idx = int(np.argmin(np.abs(z_axis - z_phys)))  # → row en tl.T
 
     return row_idx, col_idx
@@ -159,12 +171,9 @@ def extract_roi_at_corner(tl, corner_i, corner_j, roi_h, roi_w):
 def compute_roi_extent(X_raw, Z_raw, i0, j0, roi_h, roi_w):
     """Calcula extension fisica [x_left, x_right, z_bottom, z_top]
     de una ROI dada por su esquina pixel (i0, j0) en tl.T.
-
-    - cols de tl.T = filas de raw -> eje X:  X_raw[:, 0]
-    - filas de tl.T = cols de raw -> eje Z:  Z_raw[0, :]
     """
-    x_axis = X_raw[:, 0]   # dim = n_raw_rows = n_cols_tlT
-    z_axis = Z_raw[0, :]   # dim = n_raw_cols = n_rows_tlT
+    x_axis = X_raw[:, 0]
+    z_axis = _get_z_axis(Z_raw)
 
     x_left   = float(x_axis[j0])
     x_right  = float(x_axis[min(j0 + roi_w - 1, len(x_axis) - 1)])
@@ -231,6 +240,8 @@ def extract_multiple_rois(tl, roi_h, roi_w, num_rois=5,
 #  CARGA DE DATOS
 # ══════════════════════════════════════════════════════════════════════
 
+from config import USE_BLOCK_VARIABLES
+
 def _extract_angle(fname):
     """Extrae el ángulo del nombre del fichero (ej. PlaneAngle-104.47 → -104.47)."""
     m = re.search(r'PlaneAngle(-?\d+(?:\.\d+)?)', fname)
@@ -256,11 +267,10 @@ def _load_rois_from_folder(folder, roi_h, roi_w, rois_per_plane,
         fpath = os.path.join(folder, fname)
         try:
             with h5py.File(fpath, "r") as f:
-                # tl suele llamarse 'tl' pero permitimos variantes; transponer según convención
-                tl = _safe_get_dataset(f, ['tl', 'TL', 'tL']).T
-                # Algunos .mat nuevos usan 'R' en lugar de 'X' para el eje X
-                X_raw = _safe_get_dataset(f, ['X', 'x', 'R', 'r'])
-                Z_raw = _safe_get_dataset(f, ['Z', 'z'])
+                tl_keys = ['tl_block', 'tl', 'TL', 'tL'] if USE_BLOCK_VARIABLES else ['tl', 'TL', 'tL', 'tl_block']
+                tl = _safe_get_dataset(f, tl_keys).T
+                X_raw = _safe_get_dataset(f, ['R_block', 'X', 'x', 'R', 'r'])
+                Z_raw = _safe_get_dataset(f, ['Z_block', 'Z', 'z'])
         except Exception as e:
             print(f"  [!] Error con {fname}: {e}")
             continue
