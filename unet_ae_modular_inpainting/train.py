@@ -624,11 +624,13 @@ def main():
         mean_mae = np.mean(all_maes)
         mean_rmse = np.mean(all_rmses)
         mean_mape = np.mean([m for m in all_mapes if m != np.inf])
+        mean_max = np.mean(all_maxes) if len(all_maxes) > 0 else np.inf
         
         print(f"\n  Validacion completada:")
         print(f"    MAE medio   = {mean_mae:.2f} dB")
         print(f"    RMSE medio  = {mean_rmse:.2f} dB")
         print(f"    MAPE medio  = {mean_mape:.1f}%")
+        print(f"    Max medio   = {mean_max:.2f} dB")
         print(f"    sobre {len(all_maes)} planos.")
         print(f"  Resultados en: {VALIDATION_PNG_FOLDER}")
         print(f"                 {VALIDATION_MAT_FOLDER}")
