@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=0_unet_gen
+#SBATCH --job-name=0_hybr_gen
 #SBATCH --nodes=1
 #SBATCH --nodelist=n008
 #SBATCH --ntasks=1
@@ -16,7 +16,7 @@ export CUDA_VISIBLE_DEVICES="0"
 echo "Starting job"
 date
 
-cd /home/j.framinan/TFG_repo/unet_ae_modular
+cd /home/j.framinan/TFG_repo/unet_hibrido
 
 #module load miniconda3/condabase
 #eval "$(conda shell.bash hook)"

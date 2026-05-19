@@ -2,7 +2,8 @@
 """Diagnóstico: convertir dos esquinas físicas a índices de píxel en cada .mat
 
 Usa la esquina superior-izquierda definida en `config.ROI_CORNER` y la
-esquina inferior-derecha fija (-1100, -80) (X, Z).
+esquina inferior-derecha dinámica tomada como el máximo de X y el mínimo de Z
+en cada .mat.
 
 Para cada .mat en `config.DATA_FOLDER` imprime:
  - shapes de X, Z, tl
@@ -38,10 +39,6 @@ except Exception:
     ROI_HEIGHT = cfg.ROI_HEIGHT
     ROI_WIDTH = cfg.ROI_WIDTH
 
-# esquina inferior-derecha pedida por el usuario
-CORNER_B = (-1100.0, -80.0)  # (X, Z)
-
-
 def phys_to_pixel_indices(X_raw, Z_raw, x_phys, z_phys):
     """Convierte (x_phys, z_phys) a índices (row, col) según convención repo.
 
@@ -53,6 +50,18 @@ def phys_to_pixel_indices(X_raw, Z_raw, x_phys, z_phys):
     col = int(np.argmin(np.abs(x_axis - x_phys)))
     row = int(np.argmin(np.abs(z_axis - z_phys)))
     return row, col
+
+
+def infer_corner_b(X_raw, Z_raw):
+    """Infer the bottom-right corner as the maximum X and minimum Z in the file."""
+    return float(np.max(X_raw)), float(np.min(Z_raw))
+
+
+def _load_coord_grid(file_obj, candidates):
+    for key in candidates:
+        if key in file_obj:
+            return file_obj[key][:]
+    raise KeyError(f"No se encontró ninguna coordenada entre: {candidates}")
 
 
 def compute_extent_from_indices(X_raw, Z_raw, i0, i1, j0, j1):
@@ -67,17 +76,27 @@ def compute_extent_from_indices(X_raw, Z_raw, i0, i1, j0, j1):
 
 def analyze_mat(fpath):
     with h5py.File(fpath, 'r') as f:
-        # cargar en la misma convención que el repositorio usa para extracción
-        tl = f['tl'][:].T
-        X_raw = f['X'][:]
-        Z_raw = f['Z'][:]
+        # Preferir versión suavizada si existe, luego tl convencional, luego tl_block
+        if 'tl_smooth' in f:
+            tl = f['tl_smooth'][:].T
+        elif 'tl' in f:
+            tl = f['tl'][:].T
+        elif 'tl_block' in f:
+            tl = f['tl_block'][:].T
+        else:
+            raise KeyError(f"No se encontró 'tl' ni variantes en {fpath}")
+
+        X_raw = _load_coord_grid(f, ['X', 'R', 'X_block', 'R_block'])
+        Z_raw = _load_coord_grid(f, ['Z', 'Z_block'])
+
+    corner_b = infer_corner_b(X_raw, Z_raw)
 
     rows, cols = tl.shape
     x_min, x_max = float(X_raw.min()), float(X_raw.max())
     z_min, z_max = float(Z_raw.min()), float(Z_raw.max())
 
     a_x, a_z = ROI_CORNER
-    b_x, b_z = CORNER_B
+    b_x, b_z = corner_b
 
     # Normalizar orden: queremos x_left < x_right y z_bottom < z_top
     x_left_phys = min(a_x, b_x)
@@ -136,7 +155,7 @@ def main():
         return
 
     print(f"Usando esquina A (config.ROI_CORNER) = {ROI_CORNER}")
-    print(f"Usando esquina B (fijada) = {CORNER_B}\n")
+    print("Usando esquina B (dinámica) = máximo de X y mínimo de Z por archivo\n")
 
     for fname in mats:
         fpath = os.path.join(folder, fname)

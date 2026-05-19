@@ -20,6 +20,54 @@ def _safe_get_dataset(file_obj: h5py.File, keys: Sequence[str]) -> np.ndarray:
     raise KeyError(f"None of keys {keys} found. Available keys: {available}")
 
 
+def _sanitize_tl_array(tl: np.ndarray) -> np.ndarray:
+    """Convert TL to float32 and replace NaN/Inf with a stable finite value.
+
+    If there are finite values, use the minimum finite value as fill; otherwise use 0.0.
+    """
+    tl = np.asarray(tl, dtype=np.float32)
+    finite_mask = np.isfinite(tl)
+    if np.all(finite_mask):
+        return tl
+    if np.any(finite_mask):
+        fill_value = float(np.nanmin(tl[finite_mask]))
+    else:
+        fill_value = 0.0
+    return np.nan_to_num(tl, nan=fill_value, posinf=fill_value, neginf=fill_value)
+
+
+def _get_z_axis(z_raw: np.ndarray) -> np.ndarray:
+    """Resolve the physical Z axis from either row-major or column-major grids.
+
+    Prefer the trace (row or column) with larger variation (std). This avoids
+    selecting a constant column/row (e.g. all values -40) which produces a
+    degenerate plotting extent and blank PNGs.
+    """
+    z_row = np.asarray(z_raw[0, :]).flatten()
+    z_col = np.asarray(z_raw[:, 0]).flatten()
+
+    # If one axis is trivially length 1, prefer the other when possible.
+    if z_row.size > 1 and z_col.size <= 1:
+        return z_row
+    if z_col.size > 1 and z_row.size <= 1:
+        return z_col
+
+    # Compute robust estimate of variation (std) for each trace and choose
+    # the one with greater variability. Fallback to length-based choice.
+    try:
+        std_row = float(np.nanstd(z_row)) if z_row.size > 0 else 0.0
+        std_col = float(np.nanstd(z_col)) if z_col.size > 0 else 0.0
+    except Exception:
+        std_row = std_col = 0.0
+
+    if std_row > std_col:
+        return z_row
+    if std_col > std_row:
+        return z_col
+
+    return z_row if z_row.size >= z_col.size else z_col
+
+
 def extract_angle_from_filename(filename: str) -> float:
     match = ANGLE_RE.search(filename)
     return float(match.group(1)) if match else 0.0
@@ -50,7 +98,7 @@ def extract_roi_at(tl: np.ndarray, center_i: int, center_j: int, roi_h: int, roi
 
 def phys_to_pixel(x_raw: np.ndarray, z_raw: np.ndarray, x_phys: float, z_phys: float) -> Tuple[int, int]:
     x_axis = x_raw[:, 0]
-    z_axis = z_raw[0, :]
+    z_axis = _get_z_axis(z_raw)
 
     col_idx = int(np.argmin(np.abs(x_axis - x_phys)))
     row_idx = int(np.argmin(np.abs(z_axis - z_phys)))
@@ -68,7 +116,7 @@ def phys_size_to_pixels(x_raw: np.ndarray, z_raw: np.ndarray, roi_h: float, roi_
 
     try:
         x_axis = x_raw[:, 0]
-        z_axis = z_raw[0, :]
+        z_axis = _get_z_axis(z_raw)
         dxs = np.diff(x_axis)
         dzs = np.diff(z_axis)
         dx = float(np.median(dxs)) if dxs.size > 0 else 1.0
@@ -122,7 +170,7 @@ def compute_roi_extent(
     roi_w: int,
 ) -> List[float]:
     x_axis = x_raw[:, 0]
-    z_axis = z_raw[0, :]
+    z_axis = _get_z_axis(z_raw)
 
     x_left = float(x_axis[j0])
     x_right = float(x_axis[min(j0 + roi_w - 1, len(x_axis) - 1)])
@@ -208,9 +256,35 @@ def load_rois_from_folder(
 
         try:
             with h5py.File(path, "r") as file_obj:
-                tl = _safe_get_dataset(file_obj, ["tl", "TL", "tL"]).T
-                x_raw = _safe_get_dataset(file_obj, ["X", "x", "R", "r"])
-                z_raw = _safe_get_dataset(file_obj, ["Z", "z"])
+                # Prefer smoothed TL when available, then standard TL, then block TL
+                tl = None
+                tl_source = None
+                for candidate in ("tl_smooth", "tl", "TL", "tL", "tl_block"):
+                    if candidate in file_obj:
+                        tl_source = candidate
+                        tl = _sanitize_tl_array(file_obj[candidate][:].T)
+                        break
+                if tl is None:
+                    raise KeyError("No TL variant found in file")
+
+                # Prefer full-resolution coordinate grids when they match the loaded TL.
+                # This mirrors the hybrid loader and avoids using block axes for full-resolution/smoothed TL.
+                x_raw = None
+                z_raw = None
+                if "R" in file_obj and "Z" in file_obj:
+                    r_full = file_obj["R"][:]
+                    z_full = file_obj["Z"][:]
+                    if r_full.shape == tl.shape and z_full.shape == tl.shape:
+                        x_raw = r_full
+                        z_raw = z_full
+
+                if x_raw is None or z_raw is None:
+                    if tl_source == "tl_block":
+                        x_raw = _safe_get_dataset(file_obj, ["R_block", "X", "x", "R", "r"])
+                        z_raw = _safe_get_dataset(file_obj, ["Z_block", "Z", "z"])
+                    else:
+                        x_raw = _safe_get_dataset(file_obj, ["X", "x", "R", "r", "R_block"])
+                        z_raw = _safe_get_dataset(file_obj, ["Z", "z", "Z_block"])
         except Exception as error:
             if verbose:
                 print(f"[WARN] Could not read {filename}: {error}")
@@ -226,6 +300,17 @@ def load_rois_from_folder(
         corner_pixel = (0, 0)
         if roi_mode == "corner_fixed":
             row_px, col_px = phys_to_pixel(x_raw, z_raw, roi_corner[0], roi_corner[1])
+
+            # Clamp the corner so the ROI fits completely inside the plane.
+            max_top = max(roi_h_px - 1, 0)
+            max_left = max(cols - roi_w_px, 0)
+            adj_row_px = min(max(row_px, max_top), rows - 1)
+            adj_col_px = min(max(col_px, 0), max_left)
+            if verbose and (adj_row_px != row_px or adj_col_px != col_px):
+                print(
+                    f"  [i] {filename}: corner adjusted so the ROI fits -> pixel ({adj_row_px}, {adj_col_px})"
+                )
+            row_px, col_px = adj_row_px, adj_col_px
             corner_pixel = (row_px, col_px)
 
         try:
@@ -284,8 +369,8 @@ class NormalizationStats:
             angle_std = 1.0
 
         return cls(
-            tl_min=float(np.min(rois)),
-            tl_max=float(np.max(rois)),
+            tl_min=float(np.nanmin(rois)),
+            tl_max=float(np.nanmax(rois)),
             angle_mean=float(np.mean(angles_deg)),
             angle_std=angle_std,
         )

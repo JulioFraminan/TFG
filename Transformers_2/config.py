@@ -7,17 +7,17 @@ DEFAULT_RESULTS_FOLDER = "results/intento_mat/dit_gaussian"
 ROI_DEFAULTS: Dict[str, Any] = {
     #"roi_height": 700,
     #"roi_width": 2000,
-    "roi_height": 480,
-    "roi_width": 1520,
+    "roi_height": 160,
+    "roi_width": 584,
     "rois_per_plane": 1,
     "roi_mode": "corner_fixed",
-    "roi_corner_x": 50.0,
-    "roi_corner_z": -5.0,
+    "roi_corner_x": 7.0,
+    "roi_corner_z": -2.0,
 }
 
 TRAIN_IMAGE_DEFAULTS: Dict[str, Any] = {
-    "train_height": 480,
-    "train_width": 1520,
+    "train_height": 160,
+    "train_width": 584,
     "quality_profile": "none",
 }
 

@@ -4,8 +4,8 @@ import os
 #  PARÁMETROS DEL MODELO Y DATOS
 #  Las ROIs pueden ser rectangulares (alto × ancho).
 # ══════════════════════════════════════════════════════════════════
-ROI_HEIGHT     = 54        # alto del parche extraído del plano original
-ROI_WIDTH      = 190       # ancho del parche extraído
+ROI_HEIGHT     = 504        # alto del parche extraído del plano original
+ROI_WIDTH      = 1920       # ancho del parche extraído
 ROIS_PER_PLANE = 1
 # ══════════════════════════════════════════════════════════════════════
 #  MODO DE DEFINICIÓN DE LA ROI
@@ -15,20 +15,20 @@ ROIS_PER_PLANE = 1
 #                   superior izquierda de la ROI.
 # ══════════════════════════════════════════════════════════════════════
 ROI_MODE = "corner_fixed"          # opciones: "center_max" | "corner_fixed"
-ROI_CORNER = (7, -2)             # (X_físico, Z_físico) esquina SUPERIOR IZQUIERDA
+ROI_CORNER = (10, -5)             # (X_físico, Z_físico) esquina SUPERIOR IZQUIERDA
                                      # del gráfico (visual, con origin="lower").
                                      # X = borde izquierdo,  Z = borde superior.
                                      # La ROI crece hacia abajo y a la derecha.
                                      # Solo se usa cuando ROI_MODE == "corner_fixed".
-USE_BLOCK_VARIABLES = True
+USE_BLOCK_VARIABLES = False
 # ══════════════════════════════════════════════════════════════════════
 #  PARÁMETROS DE ENTRENAMIENTO
 # ══════════════════════════════════════════════════════════════════════
 BATCH_SIZE       = 8
-EPOCHS           = 500
+EPOCHS           = 100
 LEARNING_RATE    = 5.380920824447353e-05
 WEIGHT_DECAY     = 4.898620823554843e-05
-USE_AUGMENTATION = True         # True: x4 (ruido + contraste) | False: solo datos originales
+USE_AUGMENTATION = False         # True: x4 (ruido + contraste) | False: solo datos originales
 MODEL_DROPOUT    = 0.18809363235942
 
 # ══════════════════════════════════════════════════════════════════════

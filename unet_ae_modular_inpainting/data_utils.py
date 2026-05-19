@@ -19,6 +19,25 @@ def _safe_get_dataset(f, keys):
     raise KeyError(f"Ninguna de las claves {keys} encontrada en el .mat. Claves disponibles: {avail}")
 
 
+def _sanitize_tl_array(tl):
+    """Convierte TL a float32 y sustituye NaN/Inf por un valor finito estable.
+
+    Si hay al menos algún valor finito se rellena NaN/Inf por el mínimo finito
+    observado; si todo es no-finito se rellena con 0.0.
+    """
+    tl = np.asarray(tl, dtype=np.float32)
+    finite_mask = np.isfinite(tl)
+    if np.all(finite_mask):
+        return tl
+
+    if np.any(finite_mask):
+        fill_value = float(np.nanmin(tl[finite_mask]))
+    else:
+        fill_value = 0.0
+
+    return np.nan_to_num(tl, nan=fill_value, posinf=fill_value, neginf=fill_value)
+
+
 # ══════════════════════════════════════════════════════════════════════
 #  EXTRACCIÓN DE ROIs (rectangulares)
 # ══════════════════════════════════════════════════════════════════════
@@ -52,10 +71,24 @@ def extract_roi_at(tl, ci, cj, roi_h, roi_w):
 
 
 def _get_z_axis(Z_raw):
-    """Detecta automáticamente la estructura de Z_raw (antigua o nueva) y devuelve el eje Z completo."""
+    """Detecta automáticamente la estructura de Z_raw y devuelve el eje Z completo.
+
+    En algunos .mat, una de las dos proyecciones puede ser constante aunque ambas
+    tengan el mismo tamaño. En ese caso elegimos la que tenga más variación real.
+    """
     z_row = Z_raw[0, :].flatten()
     z_col = Z_raw[:, 0].flatten()
-    return z_row if z_row.size > z_col.size else z_col
+
+    row_var = float(np.ptp(z_row)) if z_row.size > 1 else 0.0
+    col_var = float(np.ptp(z_col)) if z_col.size > 1 else 0.0
+
+    if row_var > col_var:
+        return z_row
+    if col_var > row_var:
+        return z_col
+
+    # Empate: mantener la heurística original por tamaño.
+    return z_row if z_row.size >= z_col.size else z_col
 
 
 def phys_to_pixel(X_raw, Z_raw, x_phys, z_phys):
@@ -266,10 +299,35 @@ def _load_rois_from_folder(folder, roi_h, roi_w, rois_per_plane,
         fpath = os.path.join(folder, fname)
         try:
             with h5py.File(fpath, "r") as f:
-                tl_keys = ['tl_block', 'tl', 'TL', 'tL'] if USE_BLOCK_VARIABLES else ['tl', 'TL', 'tL', 'tl_block']
-                tl = _safe_get_dataset(f, tl_keys).T
-                X_raw = _safe_get_dataset(f, ['R_block', 'X', 'x', 'R', 'r'])
-                Z_raw = _safe_get_dataset(f, ['Z_block', 'Z', 'z'])
+                tl_keys = ['tl_block', 'tl', 'TL', 'tL', 'tl_smooth'] if USE_BLOCK_VARIABLES else ['tl', 'TL', 'tL', 'tl_smooth', 'tl_block']
+                tl_source = None
+                tl = None
+                for candidate in tl_keys:
+                    if candidate in f:
+                        tl_source = candidate
+                        tl = _sanitize_tl_array(f[candidate][:].T)
+                        break
+                if tl is None:
+                    raise KeyError(f"Ninguna de las claves {tl_keys} encontrada en el .mat")
+
+                # Prefer full-resolution coordinate grids when they match the loaded TL.
+                # This mirrors the hybrid loader and avoids using block axes for smoothed/full TL.
+                X_raw = None
+                Z_raw = None
+                if 'R' in f and 'Z' in f:
+                    r_full = f['R'][:]
+                    z_full = f['Z'][:]
+                    if r_full.shape == tl.shape and z_full.shape == tl.shape:
+                        X_raw = r_full
+                        Z_raw = z_full
+
+                if X_raw is None or Z_raw is None:
+                    if tl_source == 'tl_block':
+                        X_raw = _safe_get_dataset(f, ['R_block', 'X', 'x', 'R', 'r'])
+                        Z_raw = _safe_get_dataset(f, ['Z_block', 'Z', 'z'])
+                    else:
+                        X_raw = _safe_get_dataset(f, ['X', 'x', 'R', 'r', 'R_block'])
+                        Z_raw = _safe_get_dataset(f, ['Z', 'z', 'Z_block'])
         except Exception as e:
             print(f"  [!] Error con {fname}: {e}")
             continue
@@ -288,6 +346,20 @@ def _load_rois_from_folder(folder, roi_h, roi_w, rois_per_plane,
         if roi_mode == "corner_fixed":
             x_phys, z_phys = roi_corner
             row_px, col_px = phys_to_pixel(X_raw, Z_raw, x_phys, z_phys)
+
+            # Clampear la esquina para que la ROI quepa completa dentro del plano.
+            # Esto copia el comportamiento robusto del híbrido y evita que corner_fixed
+            # falle cuando la conversión física cae demasiado cerca del borde superior/izquierdo.
+            max_top = max(roi_h_px - 1, 0)
+            max_left = max(cols - roi_w_px, 0)
+            adj_row_px = min(max(row_px, max_top), rows - 1)
+            adj_col_px = min(max(col_px, 0), max_left)
+            if verbose_bounds and (adj_row_px != row_px or adj_col_px != col_px):
+                print(
+                    f"  [i] {fname}: esquina ajustada para que la ROI quepa "
+                    f"-> pixel ({adj_row_px}, {adj_col_px})"
+                )
+            row_px, col_px = adj_row_px, adj_col_px
 
             # Informar conversión / ajuste
             if verbose_bounds:
@@ -372,8 +444,9 @@ class Normalizer:
                 "y que ROI_HEIGHT/ROI_WIDTH o ROI_CORNER permitan extraer al menos una ROI por plano."
             )
 
-        self.tl_min = float(rois.min())
-        self.tl_max = float(rois.max())
+        # usar nan-aware para evitar que NaNs rompan los rangos de normalización
+        self.tl_min = float(np.nanmin(rois))
+        self.tl_max = float(np.nanmax(rois))
 
         angles_array = np.array(roi_angles, dtype=np.float32)
         if angles_array.size == 0:
