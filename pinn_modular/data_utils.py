@@ -15,6 +15,21 @@ def _safe_get_dataset(f, keys):
     raise KeyError(f"No dataset found for keys {keys}. Available: {avail}")
 
 
+def _sanitize_tl_array(tl):
+    """Convert TL to float32 and replace NaN/Inf with a stable finite value."""
+    tl = np.asarray(tl, dtype=np.float32)
+    finite_mask = np.isfinite(tl)
+    if np.all(finite_mask):
+        return tl
+
+    if np.any(finite_mask):
+        fill_value = float(np.nanmin(tl[finite_mask]))
+    else:
+        fill_value = 0.0
+
+    return np.nan_to_num(tl, nan=fill_value, posinf=fill_value, neginf=fill_value)
+
+
 # -----------------------------------------------------------------------------
 # ROI extraction helpers
 # -----------------------------------------------------------------------------
@@ -43,10 +58,14 @@ def extract_roi_at(tl, ci, cj, roi_h, roi_w):
 
 
 def _get_z_axis(Z_raw):
-    """Detecta automáticamente la estructura de Z_raw (antigua o nueva) y devuelve el eje Z completo."""
+    """Detecta automaticamente la estructura de Z_raw y devuelve el eje Z completo."""
     z_row = Z_raw[0, :].flatten()
     z_col = Z_raw[:, 0].flatten()
-    return z_row if z_row.size > z_col.size else z_col
+    if z_row.size > 1 and z_col.size <= 1:
+        return z_row
+    if z_col.size > 1 and z_row.size <= 1:
+        return z_col
+    return z_row if z_row.size >= z_col.size else z_col
 
 
 def phys_to_pixel(X_raw, Z_raw, x_phys, z_phys):
@@ -128,7 +147,7 @@ def extract_roi_at_corner(tl, corner_i, corner_j, roi_h, roi_w):
 def compute_roi_extent(X_raw, Z_raw, i0, j0, roi_h, roi_w):
     """Compute physical extent [x_left, x_right, z_bottom, z_top] for an ROI."""
     x_axis = X_raw[:, 0]
-    z_axis = Z_raw[0, :]
+    z_axis = _get_z_axis(Z_raw)
 
     x_left = float(x_axis[j0])
     x_right = float(x_axis[min(j0 + roi_w - 1, len(x_axis) - 1)])
@@ -206,9 +225,21 @@ def _load_rois_from_folder(folder, roi_h, roi_w, rois_per_plane,
         try:
             with h5py.File(fpath, "r") as f:
                 tl_keys = ["tl_block", "tl", "TL", "tL"] if USE_BLOCK_VARIABLES else ["tl", "TL", "tL", "tl_block"]
-                tl = _safe_get_dataset(f, tl_keys).T
-                X_raw = _safe_get_dataset(f, ["R_block", "X", "x", "R", "r"])
-                Z_raw = _safe_get_dataset(f, ["Z_block", "Z", "z"])
+                tl = _sanitize_tl_array(_safe_get_dataset(f, tl_keys).T)
+
+                # Prefer full-resolution coordinate grids when they match TL
+                X_raw = None
+                Z_raw = None
+                if "R" in f and "Z" in f:
+                    r_full = f["R"][:]
+                    z_full = f["Z"][:]
+                    if r_full.shape == tl.shape and z_full.shape == tl.shape:
+                        X_raw = r_full
+                        Z_raw = z_full
+
+                if X_raw is None or Z_raw is None:
+                    X_raw = _safe_get_dataset(f, ["R_block", "X", "x", "R", "r"])
+                    Z_raw = _safe_get_dataset(f, ["Z_block", "Z", "z"])
         except Exception as e:
             print(f"  [warn] Error loading {fname}: {e}")
             continue
@@ -224,6 +255,17 @@ def _load_rois_from_folder(folder, roi_h, roi_w, rois_per_plane,
         if roi_mode == "corner_fixed":
             x_phys, z_phys = roi_corner
             row_px, col_px = phys_to_pixel(X_raw, Z_raw, x_phys, z_phys)
+
+            # Clamp corner so the ROI fits inside the plane
+            max_top = max(roi_h_px - 1, 0)
+            max_left = max(cols - roi_w_px, 0)
+            adj_row_px = min(max(row_px, max_top), rows - 1)
+            adj_col_px = min(max(col_px, 0), max_left)
+            if verbose_bounds and (adj_row_px != row_px or adj_col_px != col_px):
+                print(
+                    f"  [i] {fname}: corner adjusted so ROI fits -> pixel ({adj_row_px}, {adj_col_px})"
+                )
+            row_px, col_px = adj_row_px, adj_col_px
 
             if verbose_bounds:
                 x_min, x_max = float(X_raw.min()), float(X_raw.max())

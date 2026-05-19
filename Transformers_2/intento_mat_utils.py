@@ -8,6 +8,11 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+try:
+    from config import USE_BLOCK_VARIABLES
+except Exception:
+    USE_BLOCK_VARIABLES = False
+
 
 ANGLE_RE = re.compile(r"PlaneAngle(-?\d+(?:\.\d+)?)")
 
@@ -256,10 +261,13 @@ def load_rois_from_folder(
 
         try:
             with h5py.File(path, "r") as file_obj:
-                # Prefer smoothed TL when available, then standard TL, then block TL
+                # Prefer smoothed TL when available, then standard TL, then block TL (optional)
                 tl = None
                 tl_source = None
-                for candidate in ("tl_smooth", "tl", "TL", "tL", "tl_block"):
+                candidates = ["tl_smooth", "tl", "TL", "tL"]
+                if USE_BLOCK_VARIABLES:
+                    candidates.append("tl_block")
+                for candidate in candidates:
                     if candidate in file_obj:
                         tl_source = candidate
                         tl = _sanitize_tl_array(file_obj[candidate][:].T)
