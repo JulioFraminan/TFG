@@ -29,15 +29,19 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 
-DEFAULT_TRIALS = 12
+DEFAULT_TRIALS = 100
 DEFAULT_N_JOBS = 1
 
 
-def set_trial_config(cfg, trial, run_dir):
+def set_trial_config(cfg, trial, run_dir, input_dir, validation_dir):
+    if input_dir:
+        cfg.DATA_FOLDER = input_dir
+        cfg.VALIDATION_FOLDER = validation_dir or os.path.join(input_dir, "validation")
+
     # Model / optimizer
     cfg.LEARNING_RATE = trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
     cfg.PINN_HIDDEN_DIM = int(trial.suggest_categorical("hidden_dim", [64, 128, 256]))
-    cfg.PINN_NUM_LAYERS = int(trial.suggest_int("num_layers", 2, 8))
+    cfg.PINN_NUM_LAYERS = int(trial.suggest_int("num_layers", 2, 8, 16))
     cfg.PINN_DROPOUT = float(trial.suggest_float("dropout", 0.0, 0.5))
 
     # Data / collocation sizes
@@ -78,11 +82,11 @@ def parse_mae_from_output(text):
     return None
 
 
-def objective(trial, study_name):
+def objective(trial, study_name, input_dir, validation_dir):
     # Import config and set trial parameters
     cfg = importlib.import_module("pinn_modular.config")
     run_dir = f"{study_name}_trial_{trial.number:03d}"
-    set_trial_config(cfg, trial, run_dir)
+    set_trial_config(cfg, trial, run_dir, input_dir, validation_dir)
 
     # Ensure fresh import of train so it re-reads values from config (train uses
     # `from config import ...` at import time). Remove cached module if present.
@@ -124,16 +128,20 @@ def objective(trial, study_name):
 
 def main():
     parser = argparse.ArgumentParser()
+    parser.add_argument("--trials", type=int, default=DEFAULT_TRIALS)
     parser.add_argument("--study-name", type=str, default="pinn_optuna")
+    parser.add_argument("--n-jobs", type=int, default=DEFAULT_N_JOBS)
+    parser.add_argument("--input-dir", type=str, default="")
+    parser.add_argument("--validation-dir", type=str, default="")
     args = parser.parse_args()
 
     optuna.logging.set_verbosity(optuna.logging.INFO)
     study = optuna.create_study(direction="minimize", study_name=args.study_name)
 
     # Wrap objective to pass study name for directory naming
-    func = lambda t: objective(t, args.study_name)
+    func = lambda t: objective(t, args.study_name, args.input_dir, args.validation_dir)
 
-    study.optimize(func, n_trials=DEFAULT_TRIALS, n_jobs=DEFAULT_N_JOBS)
+    study.optimize(func, n_trials=args.trials, n_jobs=args.n_jobs)
 
     print("Study complete. Best trial:")
     trial = study.best_trial

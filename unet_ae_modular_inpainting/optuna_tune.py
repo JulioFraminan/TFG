@@ -45,6 +45,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--n-jobs", type=int, default=DEFAULT_N_JOBS)
+    parser.add_argument("--input-dir", type=str, default="")
+    parser.add_argument("--validation-dir", type=str, default="")
     return parser.parse_args()
 
 
@@ -88,6 +90,8 @@ def _patch_config_for_trial(args: argparse.Namespace, trial: optuna.trial.Trial)
         "USE_AUGMENTATION": cfg.USE_AUGMENTATION,
         "INPAINT_MODE": cfg.INPAINT_MODE,
         "INPAINT_PRESERVE_KNOWN": cfg.INPAINT_PRESERVE_KNOWN,
+        "DATA_FOLDER": cfg.DATA_FOLDER,
+        "VALIDATION_FOLDER": cfg.VALIDATION_FOLDER,
         "OUTPUT_FOLDER": cfg.OUTPUT_FOLDER,
         "TRAIN_PNG_FOLDER": cfg.TRAIN_PNG_FOLDER,
         "TRAIN_MAT_FOLDER": cfg.TRAIN_MAT_FOLDER,
@@ -109,6 +113,10 @@ def _patch_config_for_trial(args: argparse.Namespace, trial: optuna.trial.Trial)
     # Inpainting explicitly disabled for this tuning run.
     cfg.INPAINT_MODE = "none"
     cfg.INPAINT_PRESERVE_KNOWN = False
+
+    if args.input_dir:
+        cfg.DATA_FOLDER = args.input_dir
+        cfg.VALIDATION_FOLDER = args.validation_dir or os.path.join(args.input_dir, "validation")
 
     cfg.OUTPUT_FOLDER = str(output_root)
     cfg.TRAIN_PNG_FOLDER = str(output_root / "train" / "PNG")

@@ -91,6 +91,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--n-jobs", type=int, default=DEFAULT_N_JOBS)
+    parser.add_argument("--input-dir", type=str, default="")
+    parser.add_argument("--validation-dir", type=str, default="")
     return parser.parse_args()
 
 
@@ -166,6 +168,13 @@ def _build_train_argv(args: argparse.Namespace, trial: optuna.trial.Trial, resul
 
     if args.train_num_steps > 0:
         argv += ["--train-num-steps", str(args.train_num_steps)]
+
+    if args.input_dir:
+        argv += ["--input-folder", args.input_dir]
+        argv += [
+            "--validation-folder",
+            args.validation_dir or str(Path(args.input_dir) / "validation"),
+        ]
 
     if min_snr_loss_weight:
         argv.append("--min-snr-loss-weight")
