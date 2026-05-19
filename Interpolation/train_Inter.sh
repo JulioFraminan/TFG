@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=2_Inter_train
+#SBATCH --job-name=3_Inter_train
 #SBATCH --nodes=1
 #SBATCH --nodelist=n008
 #SBATCH --ntasks=1
@@ -13,7 +13,7 @@
 
 set -e
 
-export ROCR_VISIBLE_DEVICES="2"
+export ROCR_VISIBLE_DEVICES="3"
 
 echo "Starting job"
 date

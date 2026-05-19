@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=0_unet_gen
+#SBATCH --job-name=3_inter_gen
 #SBATCH --nodes=1
 #SBATCH --nodelist=n008
 #SBATCH --ntasks=1
@@ -11,12 +11,12 @@
 #SBATCH --output=logs/out-%x-%j.log
 #SBATCH --error=logs/err-%x-%j.log
 
-export CUDA_VISIBLE_DEVICES="0"
+export CUDA_VISIBLE_DEVICES="3"
 
 echo "Starting job"
 date
 
-cd /home/j.framinan/TFG_repo/unet_ae_modular
+cd /home/j.framinan/TFG_repo/Interpolation
 
 #module load miniconda3/condabase
 #eval "$(conda shell.bash hook)"
