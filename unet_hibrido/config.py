@@ -5,8 +5,8 @@ import os
 #  PARÁMETROS DEL MODELO Y DATOS
 #  Las ROIs pueden ser rectangulares (alto × ancho).
 # ══════════════════════════════════════════════════════════════════
-ROI_HEIGHT     = 165        # alto del parche extraído del plano original
-ROI_WIDTH      = 586       # ancho del parche extraído
+ROI_HEIGHT     = 504        # alto del parche extraído del plano original
+ROI_WIDTH      = 1920       # ancho del parche extraído
 ROIS_PER_PLANE = 1
 # ══════════════════════════════════════════════════════════════════════
 #  MODO DE DEFINICIÓN DE LA ROI
@@ -16,7 +16,7 @@ ROIS_PER_PLANE = 1
 #                   superior izquierda de la ROI.
 # ══════════════════════════════════════════════════════════════════════
 ROI_MODE = "corner_fixed"          # opciones: "center_max" | "corner_fixed"
-ROI_CORNER = (7, -2)             # (X_físico, Z_físico) esquina SUPERIOR IZQUIERDA
+ROI_CORNER = (10, -5)             # (X_físico, Z_físico) esquina SUPERIOR IZQUIERDA
                                      # del gráfico (visual, con origin="lower").
                                      # X = borde izquierdo,  Z = borde superior.
                                      # La ROI crece hacia abajo y a la derecha.

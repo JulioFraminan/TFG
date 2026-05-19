@@ -3,24 +3,24 @@ import os
 # -----------------------------
 # MODEL AND DATA PARAMETERS
 # -----------------------------
-ROI_HEIGHT = 480
-ROI_WIDTH = 1520
+ROI_HEIGHT = 504
+ROI_WIDTH = 1920
 ROIS_PER_PLANE = 1
 
 # ROI definition mode:
 # "center_max" -> use max value as center (original behavior)
 # "corner_fixed" -> use ROI_CORNER as top-left corner in physical coords
 ROI_MODE = "corner_fixed"
-ROI_CORNER = (0, 10)
-USE_BLOCK_VARIABLES = True
+ROI_CORNER = (10, -5)
+USE_BLOCK_VARIABLES = False
 
 # -----------------------------
 # TRAINING PARAMETERS
 # -----------------------------
 BATCH_SIZE = 6
-EPOCHS = 800
+EPOCHS = 20
 LEARNING_RATE = 5e-5
-USE_AUGMENTATION = True
+USE_AUGMENTATION = False
 
 # -----------------------------
 # FNO PARAMETERS

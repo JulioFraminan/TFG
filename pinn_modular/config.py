@@ -2,14 +2,14 @@ import math
 import os
 
 # ROI parameters
-ROI_HEIGHT = 480
-ROI_WIDTH = 480
+ROI_HEIGHT = 504
+ROI_WIDTH = 1920
 ROIS_PER_PLANE = 1
 
 # ROI mode: "center_max" or "corner_fixed"
 ROI_MODE = "corner_fixed"
-ROI_CORNER = (50, -5)
-USE_BLOCK_VARIABLES = True
+ROI_CORNER = (10, -5)
+USE_BLOCK_VARIABLES = False
 
 # Training parameters
 SEED = 42

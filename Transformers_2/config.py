@@ -4,20 +4,22 @@ from typing import Any, Dict
 # Shared defaults for train_intento_mat.py and generate_intento_mat.py.
 DEFAULT_RESULTS_FOLDER = "results/intento_mat/dit_gaussian"
 
+USE_BLOCK_VARIABLES = False
+
 ROI_DEFAULTS: Dict[str, Any] = {
     #"roi_height": 700,
     #"roi_width": 2000,
-    "roi_height": 160,
-    "roi_width": 584,
+    "roi_height": 504,
+    "roi_width": 1920,
     "rois_per_plane": 1,
     "roi_mode": "corner_fixed",
-    "roi_corner_x": 7.0,
-    "roi_corner_z": -2.0,
+    "roi_corner_x": 10.0,
+    "roi_corner_z": -5.0,
 }
 
 TRAIN_IMAGE_DEFAULTS: Dict[str, Any] = {
-    "train_height": 160,
-    "train_width": 584,
+    "train_height": 504,
+    "train_width": 1920,
     "quality_profile": "none",
 }
 
