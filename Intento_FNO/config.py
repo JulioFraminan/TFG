@@ -17,20 +17,20 @@ USE_BLOCK_VARIABLES = False
 # -----------------------------
 # TRAINING PARAMETERS
 # -----------------------------
-BATCH_SIZE = 6
+BATCH_SIZE = 2
 EPOCHS = 20
-LEARNING_RATE = 5e-5
+LEARNING_RATE = 2.6352973199717185e-05
 USE_AUGMENTATION = False
 
 # -----------------------------
 # FNO PARAMETERS
 # -----------------------------
-FNO_MODES1 = 24
-FNO_MODES2 = 24
-FNO_WIDTH = 96
+FNO_MODES1 = 32
+FNO_MODES2 = 32
+FNO_WIDTH = 64
 FNO_DEPTH = 5
 FNO_USE_COORDS = True
-FNO_DROPOUT = 0.0
+FNO_DROPOUT = 0.000337928063988155
 
 # -----------------------------
 # GENERATION PARAMETERS
