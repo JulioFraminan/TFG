@@ -24,12 +24,12 @@ USE_BLOCK_VARIABLES = False
 # ══════════════════════════════════════════════════════════════════════
 #  PARÁMETROS DE ENTRENAMIENTO
 # ══════════════════════════════════════════════════════════════════════
-BATCH_SIZE       = 8
-EPOCHS           = 100
-LEARNING_RATE    = 5.380920824447353e-05
-WEIGHT_DECAY     = 4.898620823554843e-05
+EPOCHS           = 400
+BATCH_SIZE       = 4
+LEARNING_RATE    = 0.000852491930502299
+WEIGHT_DECAY     = 1.29063796594046e-05
 USE_AUGMENTATION = False         # True: x4 (ruido + contraste) | False: solo datos originales
-MODEL_DROPOUT    = 0.18809363235942
+MODEL_DROPOUT    = 0.248241199029825
 
 # ══════════════════════════════════════════════════════════════════════
 #  INPAINTING

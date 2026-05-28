@@ -19,7 +19,7 @@ import config as cfg  # noqa: E402
 DEFAULT_TRIALS = 100
 DEFAULT_STUDY_NAME = "optuna_unet_ae_no_inpaint_v3"
 DEFAULT_RESULTS_ROOT = "results/optuna_unet_ae_no_inpaint_v3"
-DEFAULT_EPOCHS = 120
+DEFAULT_EPOCHS = 100
 DEFAULT_TIMEOUT = 0
 DEFAULT_SEED = 42
 DEFAULT_N_JOBS = 1
