@@ -28,8 +28,8 @@ from train_intento_mat import _explicit_cli_destinations
 # - DEFAULT_PRUNER: pruning strategy ("median" or "none").
 # - DEFAULT_PRUNER_WARMUP_TRIALS: number of trials before pruning starts.
 # - DEFAULT_PRUNER_WARMUP_STEPS: number of reported steps before pruning starts.
-DEFAULT_TRIALS = 30
-DEFAULT_METRIC = "mean_mae"
+DEFAULT_TRIALS = 100
+DEFAULT_METRIC = "mean_mape"
 DEFAULT_STUDY_NAME = "optuna_intento_1920x480_v2"
 DEFAULT_RESULTS_ROOT = "results/intento_mat/optuna_trials_1920x480_v2"
 DEFAULT_TRAIN_NUM_STEPS = 3000

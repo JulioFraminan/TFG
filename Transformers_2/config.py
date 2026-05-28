@@ -26,9 +26,9 @@ TRAIN_IMAGE_DEFAULTS: Dict[str, Any] = {
 MODEL_DEFAULTS: Dict[str, Any] = {
     "model_type": "dit",
     "dit_variant": "DiT-S/8",
-    "dit_class_dropout": 0.124,
+    "dit_class_dropout": 0.104522837596247,
     "dit_attn_type": "linear",
-    "dit_mlp_ratio": 2.872,
+    "dit_mlp_ratio": 2.549213450387524,
     "dit_qk_norm": True,
     "max_vanilla_attn_tokens": 4096,
     "unet_dim": 64,
@@ -42,8 +42,8 @@ DIFFUSION_DEFAULTS: Dict[str, Any] = {
     "beta_schedule": "cosine",
     "timesteps": 1000,
     "sampling_timesteps": 450,
-    "min_snr_loss_weight": False,
-    "min_snr_gamma": 6.9,
+    "min_snr_loss_weight": True,
+    "min_snr_gamma": 4.959741386998994,
 }
 
 FLOW_DEFAULTS: Dict[str, Any] = {
@@ -57,11 +57,11 @@ FLOW_DEFAULTS: Dict[str, Any] = {
 }
 
 OPTIMIZATION_DEFAULTS: Dict[str, Any] = {
-    "train_batch_size": 2,
-    "train_lr": 2.15e-4,
+    "train_batch_size": 4,
+    "train_lr": 0.000955611172790,
     "train_num_steps": 25000,
     "gradient_accumulate_every": 1,
-    "ema_decay": 0.995,
+    "ema_decay": 0.994456009319684,
     "save_and_sample_every": 1000,
     "num_samples": 9,
     "max_grad_norm": 1.0,
@@ -80,7 +80,7 @@ TRAIN_VALIDATION_DEFAULTS: Dict[str, Any] = {
     "skip_post_validation": False,
     "validation_output_subdir": "validation",
     "validation_angles": "",
-    "validation_cond_scale": 2.649,
+    "validation_cond_scale": 1.181224100956666,
     "validation_sampler": "ddim",
     "validation_num_inference_steps": 450,
     "validation_rows_per_page": 6,
