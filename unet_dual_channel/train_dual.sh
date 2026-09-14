@@ -1,12 +1,12 @@
 #!/bin/bash
 
-#SBATCH --job-name=3_FNO_optu
+#SBATCH --job-name=3_dual_train
 #SBATCH --nodes=1
 #SBATCH --nodelist=n008
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
-#SBATCH --time=200:00:00
+#SBATCH --time=12:00:00
 #SBATCH --partition=gpu
 #SBATCH --output=logs/out-%x-%j.log
 #SBATCH --error=logs/err-%x-%j.log
@@ -18,12 +18,12 @@ export ROCR_VISIBLE_DEVICES="3"
 echo "Starting job"
 date
 
-cd /home/j.framinan/TFG_repo/Intento_FNO 
+cd /home/j.framinan/TFG_repo/unet_dual_channel
 
 source ~/.bashrc
 conda activate test_env
 
-python -u optuna_tune.py
+python -u train.py
 
 date
 echo "Finished"

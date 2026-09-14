@@ -2,9 +2,14 @@
 """
 Optuna tuning script for Intento_FNO.
 
+ONLY optimizes:
+    - epochs
+
+Objective metric:
+    - Mean MAPE
+
 Usage examples:
-  python Intento_FNO/optuna_tune.py --trials 20
-  python Intento_FNO/optuna_tune.py --trials 10 --study-name fno_quick
+    python optuna_epochs.py --trials 30
 """
 
 import argparse
@@ -31,24 +36,16 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 
-DEFAULT_TRIALS = 100
-DEFAULT_STUDY_NAME = "optuna_fno_504x1920_v1"
-DEFAULT_RESULTS_ROOT = "optuna_runs/optuna_fno_504x1920_v1"
-DEFAULT_EPOCHS = 100
+DEFAULT_TRIALS = 50
+DEFAULT_STUDY_NAME = "optuna_fno_epochs_mape_30"
+DEFAULT_RESULTS_ROOT = "optuna_runs/optuna_fno_epochs_mape_30"
 DEFAULT_TIMEOUT = 0
 DEFAULT_SEED = 42
 DEFAULT_N_JOBS = 1
 
 
 SEARCH_SPACE = {
-    "batch_size": [2, 4, 8],
-    "learning_rate": (1e-5, 5e-4),
-    "use_augmentation": [False, True],
-    "fno_modes": [8, 12, 16, 20, 24, 32],
-    "fno_width": [32, 64, 96, 128],
-    "fno_depth": [3, 4, 5, 6],
-    "fno_use_coords": [True, False],
-    "fno_dropout": (0.0, 0.2),
+    "epochs": (50, 400),
 }
 
 
@@ -80,14 +77,13 @@ def _ensure_local_module(module_name: str, module_dir: str):
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Optuna tuning for Intento_FNO/train.py"
+        description="Optuna tuning for epochs using Mean MAPE"
     )
 
     parser.add_argument("--trials", type=int, default=DEFAULT_TRIALS)
     parser.add_argument("--study-name", type=str, default=DEFAULT_STUDY_NAME)
     parser.add_argument("--storage", type=str, default="")
     parser.add_argument("--results-root", type=str, default=DEFAULT_RESULTS_ROOT)
-    parser.add_argument("--epochs", type=int, default=DEFAULT_EPOCHS)
     parser.add_argument("--timeout", type=int, default=DEFAULT_TIMEOUT)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
     parser.add_argument("--n-jobs", type=int, default=DEFAULT_N_JOBS)
@@ -111,60 +107,14 @@ def _patch_config_for_trial(args: argparse.Namespace, trial: optuna.trial.Trial)
         "output",
     )
 
-    fno_modes = trial.suggest_categorical(
-        "fno_modes",
-        SEARCH_SPACE["fno_modes"],
-    )
-
-    fno_width = trial.suggest_categorical(
-        "fno_width",
-        SEARCH_SPACE["fno_width"],
-    )
-
-    fno_depth = trial.suggest_categorical(
-        "fno_depth",
-        SEARCH_SPACE["fno_depth"],
-    )
-
-    fno_use_coords = trial.suggest_categorical(
-        "fno_use_coords",
-        SEARCH_SPACE["fno_use_coords"],
-    )
-
-    fno_dropout = trial.suggest_float(
-        "fno_dropout",
-        SEARCH_SPACE["fno_dropout"][0],
-        SEARCH_SPACE["fno_dropout"][1],
-    )
-
-    batch_size = trial.suggest_categorical(
-        "batch_size",
-        SEARCH_SPACE["batch_size"],
-    )
-
-    learning_rate = trial.suggest_float(
-        "learning_rate",
-        SEARCH_SPACE["learning_rate"][0],
-        SEARCH_SPACE["learning_rate"][1],
-        log=True,
-    )
-
-    use_augmentation = trial.suggest_categorical(
-        "use_augmentation",
-        SEARCH_SPACE["use_augmentation"],
+    epochs = trial.suggest_int(
+        "epochs",
+        SEARCH_SPACE["epochs"][0],
+        SEARCH_SPACE["epochs"][1],
     )
 
     previous = {
-        "BATCH_SIZE": cfg.BATCH_SIZE,
         "EPOCHS": cfg.EPOCHS,
-        "LEARNING_RATE": cfg.LEARNING_RATE,
-        "USE_AUGMENTATION": cfg.USE_AUGMENTATION,
-        "FNO_MODES1": cfg.FNO_MODES1,
-        "FNO_MODES2": cfg.FNO_MODES2,
-        "FNO_WIDTH": cfg.FNO_WIDTH,
-        "FNO_DEPTH": cfg.FNO_DEPTH,
-        "FNO_USE_COORDS": cfg.FNO_USE_COORDS,
-        "FNO_DROPOUT": cfg.FNO_DROPOUT,
         "DATA_FOLDER": cfg.DATA_FOLDER,
         "VALIDATION_FOLDER": cfg.VALIDATION_FOLDER,
         "OUTPUT_FOLDER": cfg.OUTPUT_FOLDER,
@@ -178,19 +128,7 @@ def _patch_config_for_trial(args: argparse.Namespace, trial: optuna.trial.Trial)
         "MODEL_PATH": cfg.MODEL_PATH,
     }
 
-    cfg.BATCH_SIZE = int(batch_size)
-    cfg.EPOCHS = int(args.epochs)
-    cfg.LEARNING_RATE = float(learning_rate)
-    cfg.USE_AUGMENTATION = bool(use_augmentation)
-
-    cfg.FNO_MODES1 = int(fno_modes)
-    cfg.FNO_MODES2 = int(fno_modes)
-
-    cfg.FNO_WIDTH = int(fno_width)
-    cfg.FNO_DEPTH = int(fno_depth)
-
-    cfg.FNO_USE_COORDS = bool(fno_use_coords)
-    cfg.FNO_DROPOUT = float(fno_dropout)
+    cfg.EPOCHS = int(epochs)
 
     if args.input_dir:
         cfg.DATA_FOLDER = args.input_dir
@@ -229,8 +167,8 @@ def _restore_config(previous: dict) -> None:
         setattr(cfg, key, value)
 
 
-def _parse_mae_from_text(text: str) -> Optional[float]:
-    match = re.search(r"Mean MAE\s*=\s*([0-9.+-eE]+)", text)
+def _parse_mape_from_text(text: str) -> Optional[float]:
+    match = re.search(r"Mean MAPE\s*=\s*([0-9.+-eE]+)", text)
 
     if not match:
         return None
@@ -300,13 +238,19 @@ def _run_trial(args: argparse.Namespace, trial: optuna.trial.Trial) -> float:
         with open(trial_log, "r") as handle:
             log_text = handle.read()
 
-        mae = _parse_mae_from_text(log_text)
+        mape = _parse_mape_from_text(log_text)
 
-        if mae is None:
-            print("[optuna] could not parse MAE; returning large loss")
+        if mape is None:
+            print("[optuna] could not parse MAPE; returning large loss")
             return 1e6
 
-        return mae
+        print(
+            f"[trial {trial.number:04d}] "
+            f"EPOCHS={trial.params['epochs']} "
+            f"MAPE={mape:.6f}"
+        )
+
+        return mape
 
     except RuntimeError as exc:
         error_message = str(exc)
@@ -400,7 +344,7 @@ def main() -> None:
     trial = study.best_trial
 
     print(f"  Trial: {trial.number}")
-    print(f"  Value: {trial.value}")
+    print(f"  Best MAPE: {trial.value}")
 
     print("  Params:")
 

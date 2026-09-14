@@ -1,52 +1,50 @@
 # Intento_FNO
 
-Este proyecto implementa un modelo Fourier Neural Operator (FNO) condicional para reconstruir y generar planos TL a partir de ROIs y un angulo. Mantiene la misma estructura de datos y pipeline que el modelo anterior, pero con una arquitectura espectral orientada a capturar dependencias globales.
+Este modulo implementa un Fourier Neural Operator (FNO) condicional para predecir TL en ROIs. El modelo aprende una transformacion global en el dominio de Fourier y condiciona cada pixel por el angulo del plano (y, opcionalmente, un grid de coordenadas).
 
-## Diferencias clave frente al UNet AE
+## Arquitectura (model.py)
 
-- El FNO opera en el dominio de Fourier con convoluciones espectrales y mezcla global, no usa encoder/decoder ni skip connections.
-- La entrada se condiciona con el angulo y (opcionalmente) un grid de coordenadas, en lugar de FiLM por nivel.
-- La capacidad para interpolar angulos se apoya en la mezcla global de frecuencias (modos truncados) en lugar de multiescala local.
-- La generacion agrega ruido al seed en el dominio espacial, no a niveles intermedios del encoder.
-- El costo principal es la FFT por bloque, no el downsampling/upsampling.
+- Entrada por pixel: TL normalizado (1 canal) + angulo (1 canal constante por pixel) + coords (2 canales opcionales).
+- Lifting: `fc0` proyecta cada pixel a `FNO_WIDTH`.
+- Bloques FNO (`FNO_DEPTH`):
+  - `SpectralConv2d`: rfft2, truncado a modos (`FNO_MODES1`, `FNO_MODES2`) con pesos complejos para bandas baja y alta.
+  - Ruta 1x1: `Conv2d(width, width, 1)`.
+  - Suma, `GELU` y `Dropout2d` (si `FNO_DROPOUT > 0`).
+- Proyeccion: `fc1` + `GELU` + `fc2` para volver a 1 canal.
 
-## Arquitectura del modelo (FNO condicional)
+## Condicionamiento por angulo
 
-- **Lifting**: `fc0` proyecta la entrada (TL + angulo + coords) a un ancho `FNO_WIDTH`.
-- **Bloques FNO**: cada bloque combina una convolucion espectral (FFT -> truncado -> IFFT) con una ruta 1x1.
-- **Proyeccion**: `fc1` + `fc2` llevan el ancho interno a 1 canal de salida.
-- **Activacion**: GELU en todos los bloques.
+- `Normalizer` calcula `angle_min` y `angle_max` en entrenamiento.
+- El angulo se normaliza a $[0, 1]$ y se pasa como `cond_dim = 1`.
+- El `cond_map` se expande a $H \times W$ y se concatena con TL (y coords si `FNO_USE_COORDS=True`).
 
-## Condicionamiento y entradas
+## Loss y objetivo
 
-- El angulo se normaliza y se concatena como un canal constante por pixel.
-- Si `FNO_USE_COORDS=True`, se agregan dos canales de coordenadas normalizadas (x, y).
-- Entrada final a `fc0`: `[TL, angle, coords]`.
+La loss de entrenamiento es L1 (MAE) entre la reconstruccion y el TL objetivo:
 
-## Entrenamiento y generacion
+$$
+L = \lVert \hat{T} - T \rVert_1
+$$
 
-- Entrenamiento con loss L1 (MAE) sobre reconstruccion del mismo ROI.
-- La normalizacion TL y de angulos se conserva y se guarda en el checkpoint.
-- La generacion usa una semilla (ROI mas cercano en angulo) y ruido gaussiano en el seed.
+## Generacion y relacion con el angulo
 
-## Parametros principales
+- Se selecciona una semilla cercana en angulo y se aplica un ruido controlado por `NOISE_STD`.
+- El angulo objetivo entra como condicion y dirige la salida hacia el plano deseado.
 
-- `FNO_MODES1`, `FNO_MODES2`: modos espectrales retenidos (capacidad global).
-- `FNO_WIDTH`: canales internos del FNO.
-- `FNO_DEPTH`: numero de bloques espectrales.
-- `FNO_USE_COORDS`: activa canales de coordenadas.
+## Hiperparametros clave (config.py)
+
+- `FNO_MODES1`, `FNO_MODES2`: cantidad de modos espectrales por eje.
+- `FNO_WIDTH`: canales internos en cada bloque.
+- `FNO_DEPTH`: numero de bloques FNO.
+- `FNO_USE_COORDS`: agrega grid (x, y) normalizado.
 - `FNO_DROPOUT`: dropout espacial en bloques.
+- `BATCH_SIZE`, `EPOCHS`, `LEARNING_RATE`.
+- `NOISE_STD`: intensidad del ruido en generacion.
 
-## Estructura de carpetas
+## Checkpoint
 
-- `input/`: datos .mat de entrenamiento y `input/validation/`.
-- `output/`: resultados de train/generate/validation.
-- `logs/`: logs de ejecucion.
-
-## Archivos clave
-
-- `config.py`: hiperparametros y rutas.
-- `model.py`: definicion del FNO condicional.
-- `data_utils.py`: carga de datos, normalizacion, generacion.
-- `train.py`: entrenamiento + validacion.
-- `generate.py`: generacion condicionada por angulo.
+El `.pt` guarda:
+- `model_state_dict`.
+- `roi_height` / `roi_width`.
+- `fno_*` (modes, width, depth, use_coords, dropout).
+- Rangos de normalizacion (`tl_min`, `tl_max`, `angle_min`, `angle_max`).

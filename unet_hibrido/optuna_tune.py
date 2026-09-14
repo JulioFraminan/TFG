@@ -3,6 +3,7 @@ import builtins
 import gc
 import math
 import importlib
+import os
 import re
 import sys
 from datetime import datetime
@@ -20,16 +21,17 @@ if str(PROJECT_DIR) not in sys.path:
 import config as cfg  # noqa: E402
 
 
-DEFAULT_TRIALS = 100
-DEFAULT_STUDY_NAME = ""
-DEFAULT_RESULTS_ROOT = ""
+DEFAULT_TRIALS = 200
+DEFAULT_STUDY_NAME = "optuna_unet_hybrid_epochs_only_30_200"
+DEFAULT_RESULTS_ROOT = "results/optuna_unet_hybrid_epochs_only_30_200"
 DEFAULT_EPOCHS = 100
 DEFAULT_TIMEOUT = 0
 DEFAULT_SEED = 42
 DEFAULT_N_JOBS = 1
-DEFAULT_PRUNE_WARMUP = 60
+DEFAULT_PRUNE_WARMUP = 150
 
 SEARCH_SPACE = {
+    "epochs": (30, 400),
     "batch_size": [2, 4, 8],
     "learning_rate": (1e-4, 8e-4),
     "weight_decay": (1e-7, 1e-3),
@@ -91,78 +93,44 @@ def _patch_config_for_trial(
 ) -> tuple[dict, Path]:
     output_root = _trial_results_root(args, trial) / "output"
 
+    # 1. Sugerir TODOS los parámetros del SEARCH_SPACE correctamente
+    max_epochs = max(1, int(args.epochs))
+    min_epochs = min(SEARCH_SPACE["epochs"][0], max_epochs)
+    epochs = trial.suggest_int("epochs", min_epochs, max_epochs)
+    
+    # Parámetros de entrenamiento estándar
     batch_size = trial.suggest_categorical("batch_size", SEARCH_SPACE["batch_size"])
-    learning_rate = trial.suggest_float(
-        "learning_rate",
-        SEARCH_SPACE["learning_rate"][0],
-        SEARCH_SPACE["learning_rate"][1],
-        log=True,
-    )
-    data_weight = trial.suggest_float(
-        "data_weight",
-        SEARCH_SPACE["data_weight"][0],
-        SEARCH_SPACE["data_weight"][1],
-    )
-    pinn_data_weight = trial.suggest_float(
-        "pinn_data_weight",
-        SEARCH_SPACE["pinn_data_weight"][0],
-        SEARCH_SPACE["pinn_data_weight"][1],
-        log=True,
-    )
-    weight_decay = trial.suggest_float(
-        "weight_decay",
-        SEARCH_SPACE["weight_decay"][0],
-        SEARCH_SPACE["weight_decay"][1],
-        log=True,
-    )
-    model_dropout = trial.suggest_float(
-        "model_dropout",
-        SEARCH_SPACE["model_dropout"][0],
-        SEARCH_SPACE["model_dropout"][1],
-    )
-    physics_weight = trial.suggest_float(
-        "physics_weight",
-        SEARCH_SPACE["physics_weight"][0],
-        SEARCH_SPACE["physics_weight"][1],
-        log=True,
-    )
-    interface_weight = trial.suggest_float(
-        "interface_weight",
-        SEARCH_SPACE["interface_weight"][0],
-        SEARCH_SPACE["interface_weight"][1],
-    )
-    pinn_data_batch_size = trial.suggest_categorical(
-        "pinn_data_batch_size",
-        SEARCH_SPACE["pinn_data_batch_size"],
-    )
-    points_per_roi = trial.suggest_categorical(
-        "points_per_roi",
-        SEARCH_SPACE["points_per_roi"],
-    )
-    physics_batch_size = trial.suggest_categorical(
-        "physics_batch_size",
-        SEARCH_SPACE["physics_batch_size"],
-    )
-    interface_batch_size = trial.suggest_categorical(
-        "interface_batch_size",
-        SEARCH_SPACE["interface_batch_size"],
-    )
+    lr = trial.suggest_float("learning_rate", SEARCH_SPACE["learning_rate"][0], SEARCH_SPACE["learning_rate"][1], log=True)
+    wd = trial.suggest_float("weight_decay", SEARCH_SPACE["weight_decay"][0], SEARCH_SPACE["weight_decay"][1], log=True)
+    dropout = trial.suggest_float("model_dropout", SEARCH_SPACE["model_dropout"][0], SEARCH_SPACE["model_dropout"][1])
+    
+    # Pesos de la función de pérdida combinada
+    data_w = trial.suggest_float("data_weight", SEARCH_SPACE["data_weight"][0], SEARCH_SPACE["data_weight"][1])
+    pinn_data_w = trial.suggest_float("pinn_data_weight", SEARCH_SPACE["pinn_data_weight"][0], SEARCH_SPACE["pinn_data_weight"][1], log=True)
+    physics_w = trial.suggest_float("physics_weight", SEARCH_SPACE["physics_weight"][0], SEARCH_SPACE["physics_weight"][1], log=True)
+    interface_w = trial.suggest_float("interface_weight", SEARCH_SPACE["interface_weight"][0], SEARCH_SPACE["interface_weight"][1])
+    
+    # Tamaños de batch específicos de la PINN y puntos de interés (ROI)
+    pinn_data_bs = trial.suggest_categorical("pinn_data_batch_size", SEARCH_SPACE["pinn_data_batch_size"])
+    pts_roi = trial.suggest_categorical("points_per_roi", SEARCH_SPACE["points_per_roi"])
+    physics_bs = trial.suggest_categorical("physics_batch_size", SEARCH_SPACE["physics_batch_size"])
+    interface_bs = trial.suggest_categorical("interface_batch_size", SEARCH_SPACE["interface_batch_size"])
 
+    # 2. Guardar el estado previo de TODO lo que vamos a modificar
     previous = {
         "BATCH_SIZE": cfg.BATCH_SIZE,
         "EPOCHS": cfg.EPOCHS,
-        "LEARNING_RATE": cfg.LEARNING_RATE,
-        "WEIGHT_DECAY": cfg.WEIGHT_DECAY,
-        "MODEL_DROPOUT": cfg.MODEL_DROPOUT,
-        "USE_AUGMENTATION": cfg.USE_AUGMENTATION,
-        "DATA_WEIGHT": cfg.DATA_WEIGHT,
-        "PINN_DATA_WEIGHT": cfg.PINN_DATA_WEIGHT,
-        "PINN_DATA_BATCH_SIZE": cfg.PINN_DATA_BATCH_SIZE,
-        "POINTS_PER_ROI": cfg.POINTS_PER_ROI,
-        "PHYSICS_WEIGHT": cfg.PHYSICS_WEIGHT,
-        "INTERFACE_WEIGHT": cfg.INTERFACE_WEIGHT,
-        "PHYSICS_BATCH_SIZE": cfg.PHYSICS_BATCH_SIZE,
-        "INTERFACE_BATCH_SIZE": cfg.INTERFACE_BATCH_SIZE,
+        "LEARNING_RATE": getattr(cfg, "LEARNING_RATE", 1e-4),
+        "WEIGHT_DECAY": getattr(cfg, "WEIGHT_DECAY", 1e-5),
+        "MODEL_DROPOUT": getattr(cfg, "MODEL_DROPOUT", 0.0),
+        "DATA_WEIGHT": getattr(cfg, "DATA_WEIGHT", 1.0),
+        "PINN_DATA_WEIGHT": getattr(cfg, "PINN_DATA_WEIGHT", 1e-3),
+        "PHYSICS_WEIGHT": getattr(cfg, "PHYSICS_WEIGHT", 0.5),
+        "INTERFACE_WEIGHT": getattr(cfg, "INTERFACE_WEIGHT", 0.5),
+        "PINN_DATA_BATCH_SIZE": getattr(cfg, "PINN_DATA_BATCH_SIZE", 2048),
+        "POINTS_PER_ROI": getattr(cfg, "POINTS_PER_ROI", 10000),
+        "PHYSICS_BATCH_SIZE": getattr(cfg, "PHYSICS_BATCH_SIZE", 4096),
+        "INTERFACE_BATCH_SIZE": getattr(cfg, "INTERFACE_BATCH_SIZE", 2048),
         "SEED": cfg.SEED,
         "INPAINT_MODE": cfg.INPAINT_MODE,
         "INPAINT_PRESERVE_KNOWN": cfg.INPAINT_PRESERVE_KNOWN,
@@ -179,23 +147,24 @@ def _patch_config_for_trial(
         "MODEL_PATH": cfg.MODEL_PATH,
     }
 
+    # 3. Inyectar los valores sugeridos por Optuna en el archivo config (cfg)
+    cfg.EPOCHS = int(epochs)
     cfg.BATCH_SIZE = int(batch_size)
-    cfg.EPOCHS = int(args.epochs)
-    cfg.LEARNING_RATE = float(learning_rate)
-    cfg.WEIGHT_DECAY = float(weight_decay)
-    cfg.MODEL_DROPOUT = float(model_dropout)
-    cfg.USE_AUGMENTATION = False
-    cfg.DATA_WEIGHT = float(data_weight)
-    cfg.PINN_DATA_WEIGHT = float(pinn_data_weight)
-    cfg.PINN_DATA_BATCH_SIZE = int(pinn_data_batch_size)
-    cfg.POINTS_PER_ROI = int(points_per_roi)
-    cfg.PHYSICS_WEIGHT = float(physics_weight)
-    cfg.INTERFACE_WEIGHT = float(interface_weight)
-    cfg.PHYSICS_BATCH_SIZE = int(physics_batch_size)
-    cfg.INTERFACE_BATCH_SIZE = int(interface_batch_size)
-    cfg.SEED = int(args.seed)
+    cfg.LEARNING_RATE = float(lr)
+    cfg.WEIGHT_DECAY = float(wd)
+    cfg.MODEL_DROPOUT = float(dropout)
+    cfg.DATA_WEIGHT = float(data_w)
+    cfg.PINN_DATA_WEIGHT = float(pinn_data_w)
+    cfg.PHYSICS_WEIGHT = float(physics_w)
+    cfg.INTERFACE_WEIGHT = float(interface_w)
+    cfg.PINN_DATA_BATCH_SIZE = int(pinn_data_bs)
+    cfg.POINTS_PER_ROI = int(pts_roi)
+    cfg.PHYSICS_BATCH_SIZE = int(physics_bs)
+    cfg.INTERFACE_BATCH_SIZE = int(interface_bs)
 
-    # Inpainting explicitly disabled for this tuning run.
+    # Configuraciones estáticas del trial
+    cfg.USE_AUGMENTATION = False
+    cfg.SEED = int(args.seed)
     cfg.INPAINT_MODE = "none"
     cfg.INPAINT_PRESERVE_KNOWN = False
 
@@ -351,7 +320,7 @@ def main() -> None:
         study_name=args.study_name,
         storage=storage,
         direction="minimize",
-        load_if_exists=True,
+        load_if_exists=False,
         sampler=sampler,
         pruner=pruner,
     )

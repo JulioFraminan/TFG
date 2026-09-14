@@ -16,8 +16,9 @@ if os.path.exists(cache_dir):
 #------ Configuración ------#
 
 
-folder = r"/home/j.framinan/TFG_repo/unet_ae_modular_inpainting/output/generate/MAT"
-N_PLANES = None  # Pon None para cargar TODOS los archivos de la carpeta, o un número en específico
+# Raíz del experimento con subcarpetas train/MAT y validation/MAT.
+folder = r"/home/j.framinan/TFG_repo/unet_hibrido/results/optuna_unet_hybrid_epochs_only_30/trial_0034_corner_fixed_roi504x1920_corner10p00_m5p00/output"
+N_PLANES = None  # Pon None para cargar TODOS los archivos de train/validation, o un número en específico
 
 # Configuración de exportación y visualización
 SHOW_PYVISTA = False  # True: muestra ventana 3D, False: procesa pero no renderiza
@@ -26,7 +27,7 @@ VTS_OUTPUT_PATH = os.path.join(folder, "planos_rotados.vts")
 
 # MUY IMPORTANTE: Dimensiones de cada plano SIN filtrar. (p. ej. Nx, Ny)
 # El tamaño total del array original en el .mat debe ser igual a NX * NY
-PLANE_GRID_SHAPE = (54, 190) 
+PLANE_GRID_SHAPE = (1920, 504)
 
 # Umbral de intensidad:
 ENABLE_TL_THRESHOLD = False
@@ -55,10 +56,27 @@ def extract_angle(path):
     # Si no hay número, no rotar.
     return 0.0
 
+
+def collect_mat_files(root_folder):
+    """Recoge .mat de train y validation si existen; si no, usa el directorio raíz."""
+    candidate_patterns = [
+        os.path.join(root_folder, "train", "MAT", "*.[mM][aA][tT]"),
+        os.path.join(root_folder, "validation", "MAT", "*.[mM][aA][tT]"),
+    ]
+
+    files = []
+    for pattern in candidate_patterns:
+        files.extend(glob.glob(pattern))
+
+    if files:
+        return files
+
+    return glob.glob(os.path.join(root_folder, "*.[mM][aA][tT]"))
+
 #------ Cargar archivos, procesar y mostrar con PyVista ------#
 
 
-all_files = glob.glob(os.path.join(folder, "*.[mM][aA][tT]"))
+all_files = collect_mat_files(folder)
 # Ordenar por timestamp (más recientes primero), luego por ángulo
 all_files_with_time = [(f, os.path.getmtime(f)) for f in all_files]
 all_files_with_time.sort(key=lambda x: (-x[1], extract_angle(x[0])))
@@ -72,7 +90,9 @@ else:
 files = sorted(files, key=extract_angle)  # Re-ordenar por ángulo SIEMPRE para que el 3D no se tuerza
 
 if len(files) == 0:
-    raise FileNotFoundError(f"No se encontraron archivos .mat en: {folder}")
+    raise FileNotFoundError(
+        f"No se encontraron archivos .mat en: {folder} (ni en train/MAT o validation/MAT)."
+    )
 
 angles = [extract_angle(p) for p in files]
 use_radians = max(map(abs, angles)) <= 6.5

@@ -18,8 +18,8 @@ import config as cfg  # noqa: E402
 
 
 DEFAULT_TRIALS = 50
-DEFAULT_STUDY_NAME = "optuna_unet_ae_epochs_only_30"
-DEFAULT_RESULTS_ROOT = "results/optuna_unet_ae_epochs_only_30"
+DEFAULT_STUDY_NAME = "optuna_dual_epochs_only_20"
+DEFAULT_RESULTS_ROOT = "results/optuna_dual_epochs_only_20"
 DEFAULT_EPOCHS = 100
 DEFAULT_TIMEOUT = 0
 DEFAULT_SEED = 42

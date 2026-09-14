@@ -202,7 +202,7 @@ def extract_multiple_rois(tl, roi_h, roi_w, num_rois=5,
 # Data loading
 # -----------------------------------------------------------------------------
 
-from config import USE_BLOCK_VARIABLES
+from .config import USE_BLOCK_VARIABLES
 
 def _extract_angle(fname):
     """Extract plane angle from a filename containing PlaneAngle."""
@@ -617,8 +617,8 @@ def predict_on_grid(model, coord_norm, angle_deg, extent, shape, device, batch_s
 def load_inference_pipeline(model_path, data_folder, roi_h, roi_w,
                             rois_per_plane, roi_mode="center_max", roi_corner=(0, 0)):
     """Load a trained model and data for inference."""
-    from model import PINN
-    from config import (
+    from .model import PINN
+    from .config import (
         verify_config,
         PINN_HIDDEN_DIM, PINN_NUM_LAYERS, PINN_ACTIVATION, PINN_DROPOUT,
     )

@@ -1,4 +1,3 @@
-import math
 import os
 
 # ══════════════════════════════════════════════════════════════════════
@@ -21,78 +20,23 @@ ROI_CORNER = (10, -5)             # (X_físico, Z_físico) esquina SUPERIOR IZQU
                                      # X = borde izquierdo,  Z = borde superior.
                                      # La ROI crece hacia abajo y a la derecha.
                                      # Solo se usa cuando ROI_MODE == "corner_fixed".
-# ══════════════════════════════════════════════════════════════════════
-#  PARÁMETROS DE NORMALIZACIÓN Y PREPROCESADO
-# ══════════════════════════════════════════════════════════════════════
-USE_GAUSSIAN_SMOOTHING = False
-GAUSSIAN_SIGMA = (1.5, 1.0) # (vertical, horizontal) - blur anisotrópico sugerido
-# Solo se usa cuando USE_GAUSSIAN_SMOOTHING=False:
-#   True  -> prioriza tl_block
-#   False -> prioriza tl (normal)
-USE_BLOCK_VARIABLES_WHEN_NO_SMOOTHING = False
-
+USE_BLOCK_VARIABLES = False
 # ══════════════════════════════════════════════════════════════════════
 #  PARÁMETROS DE ENTRENAMIENTO
 # ══════════════════════════════════════════════════════════════════════
-BATCH_SIZE       = 2
-EPOCHS           = 100
-LEARNING_RATE    = 0.0007864874533276813
-WEIGHT_DECAY     = 1.7061047049078685e-05
-USE_AUGMENTATION = True         # True: x4 (ruido + contraste) | False: solo datos originales
-MODEL_DROPOUT    = 0.016757827693249745
-SEED             = 42
-POINTS_PER_ROI   = 5000
-PINN_DATA_BATCH_SIZE = 1024
-PINN_DATA_WEIGHT = 0.016672233439891077
-
-# =============================
-# PHYSICS / PINN PARAMETERS
-# =============================
-PHYSICS_BATCH_SIZE = 0
-DATA_WEIGHT = 1.2123449619224251
-PHYSICS_WEIGHT = 0.34254424627786073
-INTERFACE_BATCH_SIZE = 4096
-INTERFACE_WEIGHT = 0.3021625176114692
-PDE_TYPE = "two_layer_helmholtz"  # "none", "laplace", "helmholtz", "two_layer_helmholtz"
-
-# Two-medium acoustics (air/water)
-FREQUENCY_HZ = 1000.0
-AIR_SOUND_SPEED = 343.0
-AIR_DENSITY = 1.225
-WATER_SOUND_SPEED = 1480.0
-WATER_DENSITY = 1000.0
-AIR_ABOVE_INTERFACE = True
-INTERFACE_Z = 0.0  # None -> auto midpoint of ROI bounds
-INTERFACE_EPS = 0.5
-TL_REF_PRESSURE = 1.0
-OUTPUT_IS_TL = True
-TL_DB_SIGN = -1.0
-TL_DB_OFFSET = 0.0
-TL_DB_CLAMP_MIN = 0.0
-TL_DB_CLAMP_MAX = 100.0
-
-# Single-medium Helmholtz (PDE_TYPE = "helmholtz")
-if INTERFACE_Z is None:
-    _interface_z_ref = 0.0
-else:
-    _interface_z_ref = float(INTERFACE_Z)
-HELMHOLTZ_K_MEDIUM = "water" if ROI_CORNER[1] < _interface_z_ref else "air"
-HELMHOLTZ_K_AIR = 2.0 * math.pi * FREQUENCY_HZ / AIR_SOUND_SPEED
-HELMHOLTZ_K_WATER = 2.0 * math.pi * FREQUENCY_HZ / WATER_SOUND_SPEED
-HELMHOLTZ_K = HELMHOLTZ_K_AIR if HELMHOLTZ_K_MEDIUM == "air" else HELMHOLTZ_K_WATER
-
-# PINN model parameters
-PINN_HIDDEN_DIM = 128
-PINN_NUM_LAYERS = 6
-PINN_ACTIVATION = "tanh"
-PINN_DROPOUT = 0.0
+EPOCHS           = 65
+BATCH_SIZE       = 4
+LEARNING_RATE    = 0.000852491930502299
+WEIGHT_DECAY     = 1.29063796594046e-05
+USE_AUGMENTATION = False         # True: x4 (ruido + contraste) | False: solo datos originales
+MODEL_DROPOUT    = 0.248241199029825
 
 # ══════════════════════════════════════════════════════════════════════
 #  INPAINTING
 #  INPAINT_MODE:
 #    - "none"      -> sin inpainting
-#    - "train"     -> inpainting solo en entrenamiento
-#    - "inference" -> inpainting solo en generacion/validacion
+#    - "train"     -> inpainting solo en entrenamiento (mejor)
+#    - "inference" -> inpainting solo en generacion/validacion (bloques)
 #    - "both"      -> inpainting en entrenamiento y en generacion/validacion
 # ══════════════════════════════════════════════════════════════════════
 INPAINT_MODE = "none"
@@ -112,8 +56,12 @@ INPAINT_LOSS_KNOWN_WEIGHT = 0.1 # peso de consistencia en zona conocida
 #  PARÁMETROS DE GENERACIÓN
 # ══════════════════════════════════════════════════════════════════════
 NOISE_STD       = 0.15
-#GENERATE_ANGLES = [-180]
-GENERATE_ANGLES = [0]
+GENERATE_ANGLES = [-180]
+#GENERATE_ANGLES = [-175, -170, -165, -160, -155, -150, -145, -140, -135, -130, -125,
+#-120, -115, -110, -105, -100, -95, -90, -85, -80, -75, -70, -65, -60,
+#-55, -50, -45, -40, -35, -30, -25, -20, -15, -10, -5, 0, 5, 10, 15, 20,
+#25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100, 105,
+#110, 115, 120, 125, 130, 135, 140, 145, 150, 155, 160, 165, 170, 175, 180]
 
 # ══════════════════════════════════════════════════════════════════════
 #  RUTAS
@@ -161,10 +109,6 @@ def verify_config(checkpoint):
         if saved is not None and saved != current:
             print(f"  [!] AVISO: {name} en config ({current}) != "
                   f"{name} en .pt ({saved})")
-
-    pde_type = checkpoint.get("pde_type")
-    if pde_type is not None and pde_type != PDE_TYPE:
-        print(f"  [!] AVISO: PDE_TYPE en config ({PDE_TYPE}) != PDE_TYPE en .pt ({pde_type})")
 
     # Verificar rangos de normalización
     for key, label in [("angle_min", "ANGLE_MIN"), ("angle_max", "ANGLE_MAX"),

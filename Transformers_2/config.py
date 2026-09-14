@@ -2,7 +2,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 # Shared defaults for train_intento_mat.py and generate_intento_mat.py.
-DEFAULT_RESULTS_FOLDER = "results/intento_mat/dit_gaussian"
+DEFAULT_RESULTS_FOLDER = "results/intento_mat/dit_gaussian/30"
 
 USE_BLOCK_VARIABLES = False
 
@@ -59,10 +59,10 @@ FLOW_DEFAULTS: Dict[str, Any] = {
 OPTIMIZATION_DEFAULTS: Dict[str, Any] = {
     "train_batch_size": 4,
     "train_lr": 0.000955611172790,
-    "train_num_steps": 25000,
+    "train_num_steps": 10000,
     "gradient_accumulate_every": 1,
     "ema_decay": 0.994456009319684,
-    "save_and_sample_every": 1000,
+    "save_and_sample_every": 500,
     "num_samples": 9,
     "max_grad_norm": 1.0,
 }
@@ -92,7 +92,7 @@ GENERATION_DEFAULTS: Dict[str, Any] = {
     "checkpoint": "",
     "milestone": -1,
     "prefer_ema": True,
-    "angles": "95,100,110,120,130,140,150,160,170,180",
+    "angles": "0",
     "cond_scale": 2.5,
     "sampler": "ddim",
     "num_inference_steps": 400,

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=3_Optu_Hybrid
+#SBATCH --job-name=0_Optu_Hybrid
 #SBATCH --nodes=1
 #SBATCH --nodelist=n008
 #SBATCH --ntasks=1
@@ -11,7 +11,7 @@
 #SBATCH --output=logs/out-%x-%j.log
 #SBATCH --error=logs/err-%x-%j.log
 
-export ROCR_VISIBLE_DEVICES="3"
+export ROCR_VISIBLE_DEVICES="0"
 
 echo "Starting job"
 date

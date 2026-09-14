@@ -3,8 +3,8 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
-from data_utils import load_inference_pipeline, save_mat, adaptive_figsize, predict_on_grid, compute_error_metrics
-from config import (
+from .data_utils import load_inference_pipeline, save_mat, adaptive_figsize, predict_on_grid, compute_error_metrics
+from .config import (
     ROI_HEIGHT, ROI_WIDTH,
     ROIS_PER_PLANE, GENERATE_ANGLES,
     ROI_MODE, ROI_CORNER,

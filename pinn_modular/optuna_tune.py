@@ -29,7 +29,7 @@ if _REPO_ROOT not in sys.path:
     sys.path.insert(0, _REPO_ROOT)
 
 
-DEFAULT_TRIALS = 100
+DEFAULT_TRIALS = 50
 DEFAULT_N_JOBS = 1
 
 
@@ -41,7 +41,7 @@ def set_trial_config(cfg, trial, run_dir, input_dir, validation_dir):
     # Model / optimizer
     cfg.LEARNING_RATE = trial.suggest_loguniform("learning_rate", 1e-5, 1e-3)
     cfg.PINN_HIDDEN_DIM = int(trial.suggest_categorical("hidden_dim", [64, 128, 256]))
-    cfg.PINN_NUM_LAYERS = int(trial.suggest_int("num_layers", 2, 8, 16))
+    cfg.PINN_NUM_LAYERS = int(trial.suggest_int("num_layers", 2, 8))
     cfg.PINN_DROPOUT = float(trial.suggest_float("dropout", 0.0, 0.5))
 
     # Data / collocation sizes
@@ -49,12 +49,12 @@ def set_trial_config(cfg, trial, run_dir, input_dir, validation_dir):
     cfg.PHYSICS_BATCH_SIZE = int(trial.suggest_int("physics_batch", 1024, 8192, step=1024))
 
     # Loss weights
-    cfg.DATA_WEIGHT = 1.0
+    cfg.DATA_WEIGHT = float(trial.suggest_loguniform("data_weight", 1e-4, 1.0))
     cfg.PHYSICS_WEIGHT = float(trial.suggest_loguniform("physics_weight", 1e-4, 1.0))
     cfg.INTERFACE_WEIGHT = float(trial.suggest_loguniform("interface_weight", 1e-4, 1.0))
 
     # Fix epochs for comparability across trials
-    cfg.EPOCHS = 100
+    cfg.EPOCHS = int(trial.suggest_int("epochs", 10, 350))
 
     # Use per-trial output paths to avoid collisions
     cfg.OUTPUT_FOLDER = os.path.join(cfg.BASE_DIR, "optuna_runs", run_dir)
@@ -72,7 +72,14 @@ def set_trial_config(cfg, trial, run_dir, input_dir, validation_dir):
 
 
 def parse_mae_from_output(text):
-    # Search for the printed validation summary line: "MAE mean  = <value>"
+    # Prefer a high-precision MAE if present: "MAE mean_raw = <value>"
+    m = re.search(r"MAE mean_raw\s*=\s*([0-9.+-eE]+)", text)
+    if m:
+        try:
+            return float(m.group(1))
+        except Exception:
+            return None
+    # Fallback to the older, rounded printed value: "MAE mean  = <value>"
     m = re.search(r"MAE mean\s*=\s*([0-9.+-eE]+)", text)
     if m:
         try:

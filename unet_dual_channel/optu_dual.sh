@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#SBATCH --job-name=2_Optu_Unet
+#SBATCH --job-name=0_Optu_dual
 #SBATCH --nodes=1
 #SBATCH --nodelist=n008
 #SBATCH --ntasks=1
@@ -11,12 +11,12 @@
 #SBATCH --output=logs/out-%x-%j.log
 #SBATCH --error=logs/err-%x-%j.log
 
-export ROCR_VISIBLE_DEVICES="2"
+export ROCR_VISIBLE_DEVICES="0"
 
 echo "Starting job"
 date
 
-cd /home/j.framinan/TFG_repo/unet_ae_modular_inpainting
+cd /home/j.framinan/TFG_repo/unet_dual_channel
 
 #module load miniconda3/condabase
 #eval "$(conda shell.bash hook)"

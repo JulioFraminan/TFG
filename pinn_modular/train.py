@@ -8,15 +8,15 @@ import torch.optim as optim
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
-from model import PINN
-from data_utils import (
+from .model import PINN
+from .data_utils import (
     load_all_rois, load_validation_rois,
     Normalizer, CoordNormalizer, augment,
     save_mat, adaptive_figsize,
     sample_points_from_rois, predict_on_grid,
     compute_error_metrics, get_global_bounds,
 )
-from config import (
+from .config import (
     ROI_HEIGHT, ROI_WIDTH, ROIS_PER_PLANE,
     ROI_MODE, ROI_CORNER,
     BATCH_SIZE, EPOCHS, LEARNING_RATE, USE_AUGMENTATION,
@@ -679,6 +679,8 @@ def main():
     mean_mape = np.mean([m for m in all_mapes if m != np.inf])
 
     print("Validation summary:")
+    # Print a high-precision MAE for programmatic parsing (avoid rounding collisions)
+    print(f"  MAE mean_raw = {mean_mae:.15f}")
     print(f"  MAE mean  = {mean_mae:.2f}")
     print(f"  RMSE mean = {mean_rmse:.2f}")
     print(f"  MAPE mean = {mean_mape:.1f}%")
